@@ -87,10 +87,11 @@ const upload = multer({
 // 3. KẾT NỐI DATABASE POOL (TỐI ƯU HÓA HIỆU NĂNG)
 // =========================================================
 const db = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'quanlysukien3',
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'quanlysukien3',
+    port: process.env.DB_PORT || 3306,
     charset: 'utf8mb4_unicode_ci',
     waitForConnections: true,
     connectionLimit: 10,
