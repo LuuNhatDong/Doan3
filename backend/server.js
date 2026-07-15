@@ -891,8 +891,7 @@ app.get('/api/dashboard/activities', (req, res) => {
     });
 });
 
-const axios = require('axios');
-const FormData = require('form-data');
+// axios and FormData are already imported at the top
 
 
 
