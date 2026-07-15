@@ -553,7 +553,7 @@ app.get('/api/faculties', (req, res) => {
     });
 });
 
-app.post('/api/events', upload.fields([{ name: 'poster', maxCount: 1 }, { name: 'sample_proof', maxCount: 1 }, { name: 'attached_files', maxCount: 10 }]), (req, res) => {
+app.post('/api/events', upload.fields([{ name: 'poster', maxCount: 1 }, { name: 'sample_proof', maxCount: 1 }, { name: 'attached_files', maxCount: 10 }]), async (req, res) => {
 const { 
     id, name, date, end_date, description, category, status, 
     require_gps, latitude, longitude, location_preset_id, 
@@ -616,7 +616,7 @@ const {
     });
 });
 
-app.put('/api/events/:id', upload.fields([{ name: 'poster', maxCount: 1 }, { name: 'sample_proof', maxCount: 1 }, { name: 'attached_files', maxCount: 10 }]), (req, res) => {
+app.put('/api/events/:id', upload.fields([{ name: 'poster', maxCount: 1 }, { name: 'sample_proof', maxCount: 1 }, { name: 'attached_files', maxCount: 10 }]), async (req, res) => {
     const eventId = req.params.id;
     
     // 1. Đã bổ sung require_file vào destructing từ req.body
@@ -685,7 +685,7 @@ app.patch('/api/events/:id/status', (req, res) => {
     });
 });
 
-app.put('/api/profile', upload.single('avatar'), (req, res) => {
+app.put('/api/profile', upload.single('avatar'), async (req, res) => {
     const payload = req.body || {};
     const { id, full_name, email, phone, faculty, chi_doan, mssv, cohort, avatar } = payload;
 
@@ -794,7 +794,7 @@ app.get('/api/events/:id/participants', (req, res) => {
 });
 
 // Thêm upload.single('submit_file') để hứng file sinh viên nộp
-app.post('/api/events/checkin', upload.single('submit_file'), (req, res) => {
+app.post('/api/events/checkin', upload.single('submit_file'), async (req, res) => {
     // Nhận thêm submit_link từ body
     const { student_id, event_id, method, submit_link } = req.body;
     
@@ -1744,7 +1744,7 @@ app.get('/api/mobile/profile', (req, res) => {
     });
 });
 
-app.post('/api/mobile/update_avatar', upload.single('avatar_image'), (req, res) => {
+app.post('/api/mobile/update_avatar', upload.single('avatar_image'), async (req, res) => {
     const email = req.body.email;
     if (!req.file || !email) {
         return res.json({ status: "error", message: "Thiếu ảnh hoặc email" });
