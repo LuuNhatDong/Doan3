@@ -693,7 +693,7 @@ app.put('/api/profile', upload.single('avatar'), async (req, res) => {
         return res.status(400).json({ message: 'Thiếu thông tin người dùng để cập nhật' });
     }
 
-    db.query('SELECT * FROM users WHERE id = ?', [id], (selectErr, rows) => {
+    db.query('SELECT * FROM users WHERE id = ?', [id], async (selectErr, rows) => {
         if (selectErr) {
             return res.status(500).json({ message: 'Không thể lấy lại thông tin người dùng' });
         }
