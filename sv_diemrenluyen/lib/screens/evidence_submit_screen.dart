@@ -770,30 +770,42 @@ Map<String, dynamic> mapData = {
       context: context,
       barrierDismissible: false, 
       builder: (ctx) => AlertDialog(
-        title: const Text('Kết quả Nộp Bài/Minh Chứng', style: TextStyle(fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Nộp thành công', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(status == 'approved' ? '✅ Hệ thống đã duyệt tự động!' : '⏳ Đã nộp thành công. Đang chờ Xác nhận.'),
+            Text(status == 'approved' ? '✅ Hệ thống đã duyệt tự động!' : '⏳ Hệ thống đã ghi nhận. Đang chờ Xác nhận.'),
             const SizedBox(height: 12),
             Text('Phân tích từ hệ thống:', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
             Text(aiMessage, style: TextStyle(
               color: aiMessage.contains('trùng lặp') || aiMessage.contains('⚠️') ? Colors.red : Colors.green, 
               fontWeight: FontWeight.bold
             )),
+            const SizedBox(height: 20),
+            const Center(
+              child: Column(
+                children: [
+                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(height: 8),
+                  Text('Đang tự động quay về...', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 12)),
+                ],
+              )
+            )
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx), // Đóng dialog trước
-            child: const Text('Đóng', style: TextStyle(color: Color(0xFF0D235E), fontWeight: FontWeight.bold))
-          )
-        ],
       ),
-    ).then((_) {
+    );
+
+    // Tự động đóng dialog và quay về màn hình trước sau 2.5 giây
+    Future.delayed(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
-      // Luôn quay về màn hình trước nếu được mở từ QR scan hoặc từ màn hình khác
+      
+      // Đóng dialog
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      // Quay về màn hình trước
       if (widget.initialEventId != null) {
         Navigator.pop(context, true);
       } else if (Navigator.canPop(context)) {
