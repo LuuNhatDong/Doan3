@@ -2079,8 +2079,8 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                             }
                         });
                     });
-                }
-            );
+                });
+            });
         });
     });
 });
