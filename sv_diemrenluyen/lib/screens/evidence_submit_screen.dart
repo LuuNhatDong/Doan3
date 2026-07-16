@@ -50,6 +50,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   XFile? _selectedImage;
   Uint8List? _imageBytes; 
   bool _isSubmitting = false;
+  bool _hasSubmittedSuccessfully = false;
 
   bool _currentEventRequireProof = true; 
   bool _currentEventRequireFile = false;
@@ -412,6 +413,7 @@ Map<String, dynamic> mapData = {
             eventId: finalEventId,
           );
           if (!mounted) return;
+          setState(() => _hasSubmittedSuccessfully = true);
           _showResultDialog(data['auto_status'] ?? 'pending', data['phash_warning']?.toString() == '1' ? 'Phát hiện trùng lặp' : 'Hợp lệ');
           _fetchSubmittedProofs();
         } else {
@@ -785,18 +787,23 @@ Map<String, dynamic> mapData = {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(ctx); 
-              if (Navigator.canPop(context)) {
+              Navigator.pop(ctx); // Đóng dialog
+              // Luôn quay về màn hình trước nếu được mở từ QR scan hoặc từ màn hình khác
+              if (widget.initialEventId != null) {
+                // Đến từ QR scan screen -> luôn pop về
+                Navigator.pop(context, true);
+              } else if (Navigator.canPop(context)) {
                 Navigator.pop(context, true); 
               } else {
                 setState(() {
-                  if (widget.initialEventName == null) _nameController.clear();
-                  if (widget.initialCategory == null) _selectedCategory = null;
+                  _nameController.clear();
+                  _selectedCategory = null;
                   _selectedEventId = null;
                   _selectedImage = null;
                   _imageBytes = null;
                   _selectedFile = null;
                   _linkController.clear();
+                  _hasSubmittedSuccessfully = false;
                 });
                 _fetchOngoingEvents(); 
               }
@@ -1023,7 +1030,7 @@ Map<String, dynamic> mapData = {
                   SizedBox(
                     width: double.infinity, height: 45,
                     child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitEvidence, 
+                      onPressed: (_isSubmitting || _hasSubmittedSuccessfully) ? null : _submitEvidence, 
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D235E)), 
                       child: _isSubmitting 
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
