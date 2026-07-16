@@ -2026,7 +2026,7 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                                 db.query(sqlProof, [proofId, userId, event_id], (proofErr) => {
                                     if (proofErr) {
                                         console.error("Lỗi tự động duyệt minh chứng:", proofErr.message);
-                                        return res.json({ status: "error", message: "Điểm danh thành công nhưng xảy ra lỗi đồng bộ bảng minh chứng." });
+                                        return res.json({ status: "error", message: "Điểm danh thành công nhưng lỗi đồng bộ minh chứng: " + proofErr.message });
                                     }
 
                                     let criteriaId = 5;
@@ -2053,7 +2053,7 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                                     db.query(sqlUpdateCriteria, [studentMssv, criteriaId, points, points], (critErr) => {
                                         if (critErr) {
                                             console.error("❌ Lỗi phân bổ điểm mục chi tiết tự động:", critErr.message);
-                                            return res.json({ status: "error", message: "Điểm danh thành công nhưng lỗi phân bổ danh mục." });
+                                            return res.json({ status: "error", message: "Điểm danh thành công nhưng lỗi phân bổ danh mục: " + critErr.message });
                                         }
                                         
                                         const sqlSumPoints = `SELECT SUM(current_points) AS total_points FROM student_criteria_points WHERE mssv = ?`;
