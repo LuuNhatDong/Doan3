@@ -759,18 +759,7 @@ bool reqGps = event['require_gps'] == 1 || event['require_gps'] == '1' || event[
         ));
         
         if (qrRes == true) {
-          if (!mounted) return;
-          final proofRes = await Navigator.push(context, MaterialPageRoute(
-            builder: (context) => EvidenceSubmitScreen(
-              userData: widget.userData,
-              initialEventId: event['id'].toString(),
-              initialEventName: event['name'],
-              initialCategory: event['category'],
-              requireProof: reqProof,
-              requireFile: reqFile, // <-- Truyền vào
-            )
-          ));
-          isSuccess = proofRes;
+          isSuccess = true;
         }
       } else if (!reqGps && needsSubmission) {
         final proofRes = await Navigator.push(context, MaterialPageRoute(

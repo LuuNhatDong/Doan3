@@ -192,18 +192,7 @@ onPressed: _isCheckedIn ? null : () async {
                 )
               ));
               if (qrResult == true) {
-                if (!mounted) return;
-                final proofResult = await Navigator.push(context, MaterialPageRoute(
-                  builder: (context) => EvidenceSubmitScreen(
-                    userData: {'mssv': widget.mssv},
-                    initialEventId: widget.event['id'].toString(),
-                    initialEventName: widget.event['name'],
-                    initialCategory: widget.event['category'],
-                    requireProof: reqProof,
-                    requireFile: reqFile, // <-- Truyền trạng thái nộp file sang
-                  )
-                ));
-                isSuccess = proofResult;
+                isSuccess = true;
               }
             } else if (!reqGps && needsSubmission) {
               // Chuyển thẳng tới trang nộp bài nếu không yêu cầu GPS
