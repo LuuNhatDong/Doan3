@@ -92,14 +92,14 @@ const db = mysql.createPool({
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'quanlysukien3',
     port: process.env.DB_PORT || 3306,
-    charset: 'utf8mb4_unicode_ci',
+    charset: 'utf8mb4_general_ci',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 });
 
 db.on('connection', (connection) => {
-    connection.query('SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci');
+    connection.query('SET NAMES utf8mb4 COLLATE utf8mb4_general_ci');
 });
 
 db.getConnection((err, connection) => {
@@ -272,6 +272,98 @@ const ensureLocationPresetTable = () => {
 ensureLocationPresetTable();
 
 const fixDatabaseCollation = () => {
+    const trgInsertSql = `
+    CREATE TRIGGER \`trg_proof_approved_insert\` AFTER INSERT ON \`proofs\` FOR EACH ROW BEGIN
+        DECLARE v_mssv VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+        DECLARE v_points INT;
+        DECLARE v_category VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+        DECLARE v_criteria_id INT;
+        DECLARE v_max_points INT;
+
+        IF NEW.status = 'approved' THEN
+            SELECT mssv INTO v_mssv FROM users WHERE id = NEW.student_id LIMIT 1;
+            SELECT points, category INTO v_points, v_category FROM events WHERE id = NEW.event_id LIMIT 1;
+            SELECT id, max_points INTO v_criteria_id, v_max_points FROM criteria WHERE title = v_category LIMIT 1;
+            
+            IF v_criteria_id IS NOT NULL THEN
+                IF EXISTS (SELECT 1 FROM student_criteria_points WHERE mssv = v_mssv AND criteria_id = v_criteria_id) THEN
+                    UPDATE student_criteria_points 
+                    SET current_points = LEAST(current_points + v_points, v_max_points)
+                    WHERE mssv = v_mssv AND criteria_id = v_criteria_id;
+                ELSE
+                    INSERT INTO student_criteria_points (mssv, criteria_id, current_points) 
+                    VALUES (v_mssv, v_criteria_id, LEAST(v_points, v_max_points));
+                END IF;
+                
+                UPDATE users SET point_wallet = point_wallet + v_points WHERE id = NEW.student_id;
+            END IF;
+        END IF;
+    END;
+    `;
+
+    const trgUpdateSql = `
+    CREATE TRIGGER \`trg_proof_approved_update\` AFTER UPDATE ON \`proofs\` FOR EACH ROW BEGIN
+        DECLARE v_mssv VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+        DECLARE v_points INT;
+        DECLARE v_criteria_id INT;
+        DECLARE v_max_points INT;
+        DECLARE v_current_points INT DEFAULT NULL;
+        DECLARE v_actual_diff INT DEFAULT 0;
+
+        -- TH1: DUYỆT MINH CHỨNG
+        IF NEW.status = 'approved' AND OLD.status != 'approved' THEN
+            SELECT u.mssv, e.points, c.id, c.max_points 
+            INTO v_mssv, v_points, v_criteria_id, v_max_points
+            FROM events e
+            JOIN criteria c ON c.title = e.category
+            JOIN users u ON u.id = NEW.student_id
+            WHERE e.id = NEW.event_id LIMIT 1;
+            
+            IF v_criteria_id IS NOT NULL THEN
+                SELECT current_points INTO v_current_points 
+                FROM student_criteria_points WHERE mssv = v_mssv AND criteria_id = v_criteria_id LIMIT 1;
+                
+                IF v_current_points IS NOT NULL THEN
+                    -- Tính số điểm thực tế được phép cộng (không vượt max)
+                    SET v_actual_diff = LEAST(v_current_points + v_points, v_max_points) - v_current_points;
+                    IF v_actual_diff > 0 THEN
+                        UPDATE student_criteria_points SET current_points = current_points + v_actual_diff WHERE mssv = v_mssv AND criteria_id = v_criteria_id;
+                        UPDATE users SET point_wallet = point_wallet + v_actual_diff WHERE id = NEW.student_id;
+                    END IF;
+                ELSE
+                    SET v_actual_diff = LEAST(v_points, v_max_points);
+                    INSERT INTO student_criteria_points (mssv, criteria_id, current_points) VALUES (v_mssv, v_criteria_id, v_actual_diff);
+                    UPDATE users SET point_wallet = point_wallet + v_actual_diff WHERE id = NEW.student_id;
+                END IF;
+            END IF;
+        END IF;
+        
+        -- TH2: HỦY DUYỆT MINH CHỨNG
+        IF OLD.status = 'approved' AND NEW.status != 'approved' THEN
+            SELECT u.mssv, e.points, c.id 
+            INTO v_mssv, v_points, v_criteria_id
+            FROM events e
+            JOIN criteria c ON c.title = e.category
+            JOIN users u ON u.id = NEW.student_id
+            WHERE e.id = NEW.event_id LIMIT 1;
+            
+            IF v_criteria_id IS NOT NULL THEN
+                SELECT current_points INTO v_current_points 
+                FROM student_criteria_points WHERE mssv = v_mssv AND criteria_id = v_criteria_id LIMIT 1;
+                
+                IF v_current_points IS NOT NULL THEN
+                    -- Tính số điểm thực tế cần trừ
+                    SET v_actual_diff = v_current_points - GREATEST(v_current_points - v_points, 0);
+                    IF v_actual_diff > 0 THEN
+                        UPDATE student_criteria_points SET current_points = current_points - v_actual_diff WHERE mssv = v_mssv AND criteria_id = v_criteria_id;
+                        UPDATE users SET point_wallet = GREATEST(point_wallet - v_actual_diff, 0) WHERE id = NEW.student_id;
+                    END IF;
+                END IF;
+            END IF;
+        END IF;
+    END;
+    `;
+
     db.query("SHOW TABLES", (err, rows) => {
         if (err) {
             console.warn("⚠️ Không thể liệt kê bảng để kiểm tra Collation:", err.message);
@@ -279,6 +371,31 @@ const fixDatabaseCollation = () => {
         }
         const dbName = process.env.DB_NAME || 'quanlysukien3';
         const key = `Tables_in_${dbName}`;
+        const totalTables = rows.length;
+        let completedCount = 0;
+
+        const runRecreateTriggers = () => {
+            db.query("DROP TRIGGER IF EXISTS trg_proof_approved_insert", (dropErr1) => {
+                if (dropErr1) console.warn("⚠️ Lỗi xóa trigger insert:", dropErr1.message);
+                
+                db.query(trgInsertSql, (createErr1) => {
+                    if (createErr1) console.warn("⚠️ Lỗi tạo lại trigger insert:", createErr1.message);
+                    else console.log("✅ Đã cập nhật và biên dịch lại trigger trg_proof_approved_insert.");
+                });
+            });
+
+            db.query("DROP TRIGGER IF EXISTS trg_proof_approved_update", (dropErr2) => {
+                if (dropErr2) console.warn("⚠️ Lỗi xóa trigger update:", dropErr2.message);
+                
+                db.query(trgUpdateSql, (createErr2) => {
+                    if (createErr2) console.warn("⚠️ Lỗi tạo lại trigger update:", createErr2.message);
+                    else console.log("✅ Đã cập nhật và biên dịch lại trigger trg_proof_approved_update.");
+                });
+            });
+        };
+
+        if (totalTables === 0) return;
+
         for (let row of rows) {
             const tableName = row[key] || Object.values(row)[0];
             if (tableName) {
@@ -288,7 +405,16 @@ const fixDatabaseCollation = () => {
                     } else {
                         console.log(`✅ Đã đồng bộ Collation utf8mb4_general_ci cho bảng: ${tableName}`);
                     }
+                    completedCount++;
+                    if (completedCount === totalTables) {
+                        runRecreateTriggers();
+                    }
                 });
+            } else {
+                completedCount++;
+                if (completedCount === totalTables) {
+                    runRecreateTriggers();
+                }
             }
         }
     });
