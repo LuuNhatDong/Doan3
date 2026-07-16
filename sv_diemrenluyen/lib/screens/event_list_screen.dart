@@ -10,9 +10,6 @@ import 'event_detail_screen.dart';
 import 'qr_scan_screen.dart';
 import 'evidence_submit_screen.dart';
 
-// =========================================================
-// MÀN HÌNH DANH SÁCH SỰ KIỆN - CHUẨN UX/UI ĐẦY ĐỦ CHỈ TIÊU TEXT
-// =========================================================
 class EventListScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
   const EventListScreen({Key? key, required this.userData}) : super(key: key);
@@ -87,94 +84,86 @@ class _EventListScreenState extends State<EventListScreen> with SingleTickerProv
 
       final response = await _dio.get(url); 
       
-if (response.statusCode == 200 && response.data['status'] == 'success') { 
-  if (mounted) {
-    setState(() {
-      final List<dynamic> eventData = response.data['events'] ?? []; 
-      final DateTime now = DateTime.now(); 
+      if (response.statusCode == 200 && response.data['status'] == 'success') { 
+        if (mounted) {
+          setState(() {
+            final List<dynamic> eventData = response.data['events'] ?? []; 
+            final DateTime now = DateTime.now(); 
 
-      bool isEventEnded(dynamic e) {
-        if (e['status'] == 'Đã kết thúc') return true; 
-        if (e['date'] != null) {
-          try {
-            DateTime startTime = DateTime.parse(e['date']); 
-            DateTime endTime = e['end_date'] != null 
-                ? DateTime.parse(e['end_date']) 
-                : startTime.add(const Duration(hours: 4)); 
-            return now.isAfter(endTime); 
-          } catch (_) {}
-        }
-        return false;
-      }
+            bool isEventEnded(dynamic e) {
+              if (e['status'] == 'Đã kết thúc') return true; 
+              if (e['date'] != null) {
+                try {
+                  DateTime startTime = DateTime.parse(e['date']); 
+                  DateTime endTime = e['end_date'] != null 
+                      ? DateTime.parse(e['end_date']) 
+                      : startTime.add(const Duration(hours: 4)); 
+                  return now.isAfter(endTime); 
+                } catch (_) {}
+              }
+              return false;
+            }
 
-      // --- 1. LỌC TAB SẮP DIỄN RA ---
-      _availableEvents = eventData.where((e) {
-        if (e == null) return false;
-        if (isEventEnded(e)) return false;
+            // --- 1. LỌC TAB SẮP DIỄN RA ---
+            _availableEvents = eventData.where((e) {
+              if (e == null) return false;
+              if (isEventEnded(e)) return false;
 
-        final bool isCheckedIn = e['is_checked_in'] == 1 || e['is_checked_in'] == '1' || e['is_checked_in'] == true;
-        final int isReg = e['is_registered'] != null ? int.tryParse(e['is_registered'].toString()) ?? 0 : 0;
-        
-        // Nếu đã điểm danh/nộp minh chứng rồi thì ẩn hoàn toàn khỏi danh sách tìm kiếm đăng ký
-        if (isCheckedIn) return false;
-        return isReg == 0;
-      }).toList();
+              final bool isCheckedIn = e['is_checked_in'] == 1 || e['is_checked_in'] == '1' || e['is_checked_in'] == true;
+              final int isReg = e['is_registered'] != null ? int.tryParse(e['is_registered'].toString()) ?? 0 : 0;
+              
+              if (isCheckedIn) return false;
+              return isReg == 0;
+            }).toList();
 
-      // --- 2. LỌC TAB ĐÃ ĐĂNG KÝ (ẨN ĐI NGAY KHI ĐÃ ĐIỂM DANH THÀNH CÔNG) ---
-      _registeredEvents = eventData.where((e) {
-        if (e == null) return false;
-        if (isEventEnded(e)) return false;
+            // --- 2. LỌC TAB ĐÃ ĐĂNG KÝ ---
+            _registeredEvents = eventData.where((e) {
+              if (e == null) return false;
+              if (isEventEnded(e)) return false;
 
-        final bool isCheckedIn = e['is_checked_in'] == 1 || e['is_checked_in'] == '1' || e['is_checked_in'] == true;
-        final int isReg = e['is_registered'] != null ? int.tryParse(e['is_registered'].toString()) ?? 0 : 0;
-        final String scoreType = (e['score_type'] ?? 'once').toString().trim().toLowerCase();
+              final bool isCheckedIn = e['is_checked_in'] == 1 || e['is_checked_in'] == '1' || e['is_checked_in'] == true;
+              final int isReg = e['is_registered'] != null ? int.tryParse(e['is_registered'].toString()) ?? 0 : 0;
+              final String scoreType = (e['score_type'] ?? 'once').toString().trim().toLowerCase();
 
-        // VÁ LỖI CHÍNH: Nếu tính THEO LẦN (once) và ĐÃ CHECK-IN/NỘP MINH CHỨNG -> ẨN LUÔN không hiển thị ở tab Đã đăng ký nữa
-        if (scoreType == 'once' && isCheckedIn) {
-          return false;
-        }
-        
-        // Nếu tính theo lượt (multiple) thì vẫn giữ lại cho sinh viên nộp tiếp lượt sau, ngược lại phải là sự kiện đã đăng ký thành công
-        return isReg == 1;
-      }).toList();
+              if (scoreType == 'once' && isCheckedIn) {
+                return false;
+              }
+              
+              return isReg == 1;
+            }).toList();
 
-    
-_availableEvents.sort((a, b) {
-  bool isAOngoing = a['status'] == 'Đang diễn ra'; 
-  bool isBOngoing = b['status'] == 'Đang diễn ra'; 
-  
-  int maxA = int.tryParse(a['max_participants']?.toString() ?? '0') ?? 0; 
-  int curA = int.tryParse(a['current_participants']?.toString() ?? '0') ?? 0; 
-  bool isFullA = maxA > 0 && curA >= maxA; 
-  
-  int maxB = int.tryParse(b['max_participants']?.toString() ?? '0') ?? 0; 
-  int curB = int.tryParse(b['current_participants']?.toString() ?? '0') ?? 0; 
-  bool isFullB = maxB > 0 && curB >= maxB; 
+            _availableEvents.sort((a, b) {
+              bool isAOngoing = a['status'] == 'Đang diễn ra'; 
+              bool isBOngoing = b['status'] == 'Đang diễn ra'; 
+              
+              int maxA = int.tryParse(a['max_participants']?.toString() ?? '0') ?? 0; 
+              int curA = int.tryParse(a['current_participants']?.toString() ?? '0') ?? 0; 
+              bool isFullA = maxA > 0 && curA >= maxA; 
+              
+              int maxB = int.tryParse(b['max_participants']?.toString() ?? '0') ?? 0; 
+              int curB = int.tryParse(b['current_participants']?.toString() ?? '0') ?? 0; 
+              bool isFullB = maxB > 0 && curB >= maxB; 
 
-  // Hàm kiểm tra xem sự kiện đã quá hạn 30 phút đăng ký muộn chưa
-  bool isPastDeadline(dynamic eventData) {
-    if (eventData['date'] != null) {
-      try {
-        DateTime startTime = DateTime.parse(eventData['date']);
-        return DateTime.now().isAfter(startTime.add(const Duration(minutes: 30)));
-      } catch (_) {}
-    }
-    return false;
-  }
+              bool isPastDeadline(dynamic eventData) {
+                if (eventData['date'] != null) {
+                  try {
+                    DateTime startTime = DateTime.parse(eventData['date']);
+                    return DateTime.now().isAfter(startTime.add(const Duration(minutes: 30)));
+                  } catch (_) {}
+                }
+                return false;
+              }
 
-  // Định nghĩa lại isClosed: Sự kiện chỉ bị đóng khi Full HOẶC (Đang diễn ra VÀ đã quá hạn đăng ký muộn)
-  bool isClosedA = isFullA || (isAOngoing && isPastDeadline(a)); 
-  bool isClosedB = isFullB || (isBOngoing && isPastDeadline(b));
+              bool isClosedA = isFullA || (isAOngoing && isPastDeadline(a)); 
+              bool isClosedB = isFullB || (isBOngoing && isPastDeadline(b));
 
-  // Đẩy các sự kiện thực sự đã đóng xuống cuối danh sách
-  if (!isClosedA && isClosedB) return -1;
-  if (isClosedA && !isClosedB) return 1;
-  
-  // Nếu cùng trạng thái (cùng mở hoặc cùng đóng), sắp xếp theo thời gian tăng dần
-  final dateA = DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime.now(); 
-  final dateB = DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime.now(); 
-  return dateA.compareTo(dateB); 
-});
+              if (!isClosedA && isClosedB) return -1;
+              if (isClosedA && !isClosedB) return 1;
+              
+              final dateA = DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime.now(); 
+              final dateB = DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime.now(); 
+              return dateA.compareTo(dateB); 
+            });
 
             _isLoading = false;
           });
@@ -261,40 +250,6 @@ _availableEvents.sort((a, b) {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Lỗi mạng: $e'), backgroundColor: Colors.red));
-    }
-  }
-
-  Future<void> _checkInForEvent(String eventId) async {
-    final mssv = await _getRealMSSV();
-    if (!mounted) return;
-
-    if (mssv == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Lỗi: Không tìm thấy thông tin đăng nhập!'), backgroundColor: Colors.red));
-      return;
-    }
-
-    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-
-    try {
-      final response = await _dio.post('$backendBaseUrl/api/mobile/checkin_event', data: {'event_id': eventId, 'mssv': mssv});
-      
-      if (!mounted) return;
-      Navigator.pop(context);
-
-      if (response.data['status'] == 'success') {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ ${response.data['message']}'), backgroundColor: Colors.green));
-        await NotificationHelper.saveNotificationRecord(
-          '✅ Điểm danh thành công', 
-          'Bạn đã điểm danh thành công sự kiện! Điểm rèn luyện sẽ được hệ thống cập nhật sau.'
-        );
-        _loadUnreadCount();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('⚠️ ${response.data['message']}'), backgroundColor: Colors.orange));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Lỗi mạng: $e'), backgroundColor: Colors.red));
     }
   }
@@ -469,6 +424,9 @@ _availableEvents.sort((a, b) {
     final String name = event['name'] ?? 'Chưa có tên';
     final String dateStr = event['date'] ?? 'Đang cập nhật';
 
+    // KIỂM TRA QUYỀN VÀ TRẠNG THÁI CHO CÁN BỘ LỚP
+    final bool requireClassCommittee = event['require_class_committee'] == 1 || event['require_class_committee'] == '1' || event['require_class_committee'] == true;
+
     Widget buildPosterImage() {
       const String defaultAssetPath = 'assets/img/ctut-placeholder.jpg';
       final String? posterPath = event['poster_url']?.toString();
@@ -553,29 +511,28 @@ _availableEvents.sort((a, b) {
       ), 
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-// Tìm đoạn cấu hình InkWell -> onTap trong _buildEventCard của event_list_screen.dart:
-onTap: () async {
-  final realMssv = await _getRealMSSV();
-  if (!mounted) return;
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => EventDetailScreen(
-        event: event,
-        isRegistered: isRegistered,
-        mssv: realMssv,
-        onStateChanged: () {
-          _fetchEventsFromBackend();
+        onTap: () async {
+          final realMssv = await _getRealMSSV();
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EventDetailScreen(
+                event: event,
+                isRegistered: isRegistered,
+                mssv: realMssv,
+                userData: widget.userData, // BỔ SUNG TRUYỀN DỮ LIỆU
+                onStateChanged: () {
+                  _fetchEventsFromBackend();
+                },
+              ),
+            ),
+          ).then((value) {
+            if (value == true || value == null) {
+              _fetchEventsFromBackend();
+            }
+          });
         },
-      ),
-    ),
-  ).then((value) {
-    // --- ĐÃ BỔ SUNG: Nếu có bất kỳ thay đổi trạng thái nào từ trang chi tiết trả về, thực hiện reload ---
-    if (value == true || value == null) {
-      _fetchEventsFromBackend();
-    }
-  });
-},
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -701,6 +658,24 @@ onTap: () async {
                           ],
                         )
                       ],
+
+                      // BỔ SUNG: UI Chỉ dành cho cán bộ lớp
+                      if (requireClassCommittee) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.security, size: 16, color: Colors.orange.shade800), 
+                            const SizedBox(width: 4), 
+                            Expanded(
+                              child: Text(
+                                'Đối tượng: Chỉ dành cho Cán bộ lớp', 
+                                style: TextStyle(fontSize: 13, color: Colors.orange.shade800, fontWeight: FontWeight.bold)
+                              )
+                            )
+                          ],
+                        ),
+                      ],
                     ],
                   ),
 
@@ -738,11 +713,15 @@ onTap: () async {
       } catch (_) {}
     }
 
-bool reqGps = event['require_gps'] == 1 || event['require_gps'] == '1' || event['require_gps'] == true;
+    // KIỂM TRA QUYỀN
+    final String userRole = widget.userData['role']?.toString().toLowerCase() ?? 'student';
+    final bool requireClassCommittee = event['require_class_committee'] == 1 || event['require_class_committee'] == '1' || event['require_class_committee'] == true;
+    final bool isClassCommittee = userRole == 'classcommittee' || userRole == 'admin' || userRole == 'superadmin';
+    final bool isRestrictedForMe = requireClassCommittee && !isClassCommittee;
+
+    bool reqGps = event['require_gps'] == 1 || event['require_gps'] == '1' || event['require_gps'] == true;
     bool reqProof = event['require_proof'] == 1 || event['require_proof'] == '1' || event['require_proof'] == true;
     bool reqFile = event['require_file'] == 1 || event['require_file'] == '1' || event['require_file'] == true;
-    
-    // Gộp điều kiện
     bool needsSubmission = reqProof || reqFile;
 
     Future<void> handleAttendanceFlow() async {
@@ -769,7 +748,7 @@ bool reqGps = event['require_gps'] == 1 || event['require_gps'] == '1' || event[
             initialEventName: event['name'],
             initialCategory: event['category'],
             requireProof: reqProof,
-            requireFile: reqFile, // <-- Truyền vào
+            requireFile: reqFile, 
           )
         ));
         isSuccess = proofRes;
@@ -800,6 +779,17 @@ bool reqGps = event['require_gps'] == 1 || event['require_gps'] == '1' || event[
           ), 
           child: const Text('Điểm danh ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
         );
+      } else if (isRestrictedForMe) {
+        return ElevatedButton(
+          onPressed: null, 
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey.shade400, 
+            disabledBackgroundColor: Colors.grey.shade300,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), 
+            elevation: 0
+          ), 
+          child: const Text('Chỉ dành cho Cán bộ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+        );
       } else if (canStillRegister && !isFull) {
         return ElevatedButton(
           onPressed: () => _registerForEvent(event['id'].toString()), 
@@ -829,6 +819,19 @@ bool reqGps = event['require_gps'] == 1 || event['require_gps'] == '1' || event[
         child: const Text('Hủy đăng ký', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
       );
     } else {
+      if (isRestrictedForMe) {
+        return ElevatedButton(
+          onPressed: null, 
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey.shade400, 
+            disabledBackgroundColor: Colors.grey.shade300,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), 
+            elevation: 0
+          ), 
+          child: const Text('Chỉ dành cho Cán bộ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+        );
+      }
+
       if (isFull) {
         return ElevatedButton(
           onPressed: null, 

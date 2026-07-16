@@ -309,6 +309,7 @@ onTap: () {
         },
         isRegistered: activity['is_registered'] == 1 || activity['is_registered'] == true,
         mssv: _mssv,
+        userData: widget.userData,
         onStateChanged: () {
           _fetchDashboardData();
         },

@@ -200,7 +200,7 @@ const ProofApproval = () => {
                         <div 
                           className="w-100 h-100"
                           style={{
-                            backgroundImage: `url(${proof.image_url?.startsWith('http') ? proof.image_url : `https://doan3-ooha.onrender.com${proof.image_url}`})`,
+                            backgroundImage: `url(https://doan3-ooha.onrender.com${proof.image_url})`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                           }}
@@ -391,7 +391,7 @@ const ProofApproval = () => {
             {selectedProof?.image_url ? (
               <img 
                 id="movable-zoom-img"
-                src={`${selectedProof.image_url?.startsWith('http') ? selectedProof.image_url : `https://doan3-ooha.onrender.com${selectedProof.image_url}`}`} 
+                src={`https://doan3-ooha.onrender.com${selectedProof.image_url}`} 
                 alt="Minh chứng" 
                 className="img-fluid rounded shadow"
                 style={{ 

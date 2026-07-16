@@ -89,7 +89,8 @@ const EventManagement = ({ searchQuery = '' }) => {
     category: '', status: 'Sắp diễn ra', points: 0,
     require_gps: false, latitude: '', longitude: '', required_fields: defaultRequiredFields,
     require_proof: true,
-    require_file: false, // Thêm trường require_file mặc định
+    require_file: false, 
+    require_class_committee: false, // BỔ SUNG: Cấu hình mặc định cho Cán bộ lớp
     max_participants: '',
     score_type: 'once', 
     facultyLimits: { HTTT: '', KTPM: '', KHMT: '', MMTT: '' }
@@ -243,7 +244,8 @@ const EventManagement = ({ searchQuery = '' }) => {
     setFormData({
       id: '', name: '', date: '', end_date: '', description: '', category: '', status: 'Sắp diễn ra', points: 0, require_gps: false, latitude: '', longitude: '', required_fields: defaultRequiredFields,
       require_proof: true,
-      require_file: false, // Cấu hình mặc định khi tạo mới
+      require_file: false, 
+      require_class_committee: false, // BỔ SUNG: Cấu hình mặc định khi tạo mới
       max_participants: '',
       score_type: 'once',
       facultyLimits: emptyLimits
@@ -303,7 +305,8 @@ const EventManagement = ({ searchQuery = '' }) => {
       longitude: normalizedEvent.longitude || '',
       required_fields: parseRequiredFields(normalizedEvent.required_fields) || getRequiredFieldsForEvent(normalizedEvent.id) || defaultRequiredFields,
       require_proof: evt.require_proof !== undefined ? Boolean(Number(evt.require_proof)) : true,
-      require_file: evt.require_file !== undefined ? Boolean(Number(evt.require_file)) : false, // Lấy giá trị từ CSDL
+      require_file: evt.require_file !== undefined ? Boolean(Number(evt.require_file)) : false, 
+      require_class_committee: evt.require_class_committee !== undefined ? Boolean(Number(evt.require_class_committee)) : false, // BỔ SUNG: Lấy dữ liệu từ CSDL
       max_participants: evt.max_participants || '',
       score_type: (evt.score_type && evt.score_type.toString().trim() !== '') ? evt.score_type.toString().trim().toLowerCase() : 'once',
       facultyLimits: initialLimits
@@ -365,7 +368,8 @@ const EventManagement = ({ searchQuery = '' }) => {
       setLocationSelectionMode('manual');
       setSelectedPresetId(null);
       setAutoDetectPreset(false);
-    } else if (name === 'require_proof' || name === 'require_file') { // Xử lý cho cả 2 checkbox
+    } else if (name === 'require_proof' || name === 'require_file' || name === 'require_class_committee') { 
+      // BỔ SUNG: Xử lý State cho tất cả các Switch Checkbox mới
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
@@ -546,7 +550,8 @@ const EventManagement = ({ searchQuery = '' }) => {
     payload.append('description', formData.description);
     payload.append('require_gps', formData.require_gps ? 1 : 0);
     payload.append('require_proof', formData.require_proof ? 1 : 0);
-    payload.append('require_file', formData.require_file ? 1 : 0); // Thêm dữ liệu nộp file
+    payload.append('require_file', formData.require_file ? 1 : 0); 
+    payload.append('require_class_committee', formData.require_class_committee ? 1 : 0); // BỔ SUNG: Gửi tín hiệu xuống Server
     payload.append('max_participants', limitTong);
     payload.append('required_fields', JSON.stringify(formData.required_fields || defaultRequiredFields));
     payload.append('category', formData.category);
@@ -604,6 +609,7 @@ const EventManagement = ({ searchQuery = '' }) => {
           location_preset_id: nextGpsEnabled ? (finalPresetId || selectedPresetId || null) : null,
           require_proof: Boolean(formData.require_proof),
           require_file: Boolean(formData.require_file),
+          require_class_committee: Boolean(formData.require_class_committee), // BỔ SUNG: Cập nhật State trực tiếp sau khi lưu
           max_participants: limitTong,
           score_type: formData.score_type,
           required_fields: formData.required_fields || defaultRequiredFields,
@@ -643,7 +649,7 @@ const EventManagement = ({ searchQuery = '' }) => {
       p.chi_doan || '-', 
       p.checkin_time, 
       p.method,
-      p.file ? (p.file.startsWith('http') ? p.file : `https://doan3-ooha.onrender.com${p.file}`) : '-', 
+      p.file ? `https://doan3-ooha.onrender.com${p.file}` : '-', 
       p.link || '-'
     ]);
 
@@ -900,7 +906,7 @@ const EventManagement = ({ searchQuery = '' }) => {
               </div>
               {isEditMode && selectedEvent?.sample_proof_url && (
                 <div className="mt-2 small text-muted">
-                  Ảnh mẫu hiện tại: <a href={selectedEvent.sample_proof_url?.startsWith('http') ? selectedEvent.sample_proof_url : `https://doan3-ooha.onrender.com${selectedEvent.sample_proof_url}`} target="_blank" rel="noreferrer" className="fw-bold text-decoration-none"><i className="bi bi-eye-fill me-1"></i>Xem ảnh mẫu</a>
+                  Ảnh mẫu hiện tại: <a href={`https://doan3-ooha.onrender.com${selectedEvent.sample_proof_url}`} target="_blank" rel="noreferrer" className="fw-bold text-decoration-none"><i className="bi bi-eye-fill me-1"></i>Xem ảnh mẫu</a>
                 </div>
               )}
             </Form.Group>
@@ -945,12 +951,12 @@ const EventManagement = ({ searchQuery = '' }) => {
                     try {
                       const files = JSON.parse(selectedEvent.attached_file);
                       return Array.isArray(files) ? files.map((f, i) => (
-                        <a key={i} href={f.startsWith('http') ? f : `https://doan3-ooha.onrender.com${f}`} target="_blank" rel="noreferrer" className="d-block text-decoration-none text-primary mb-1">
+                        <a key={i} href={`https://doan3-ooha.onrender.com${f}`} target="_blank" rel="noreferrer" className="d-block text-decoration-none text-primary mb-1">
                           <i className="bi bi-download me-1"></i> Tải xuống Tài liệu {i + 1}
                         </a>
                       )) : null;
                     } catch {
-                      return <a href={selectedEvent.attached_file?.startsWith('http') ? selectedEvent.attached_file : `https://doan3-ooha.onrender.com${selectedEvent.attached_file}`} target="_blank" rel="noreferrer" className="text-decoration-none fw-bold">Xem / Tải xuống</a>;
+                      return <a href={`https://doan3-ooha.onrender.com${selectedEvent.attached_file}`} target="_blank" rel="noreferrer" className="text-decoration-none fw-bold">Xem / Tải xuống</a>;
                     }
                   })()}
                 </div>
@@ -981,12 +987,21 @@ const EventManagement = ({ searchQuery = '' }) => {
               <Form.Check type="switch" id="proof-switch" name="require_proof" checked={!!formData.require_proof} onChange={handleChange} className="m-0 fs-5" />
             </div>
             
-            {/* THÊM TÍNH NĂNG BẮT BUỘC NỘP FILE/LINK */}
             <div className="border-start border-secondary opacity-25 mx-2 d-none d-md-block" style={{ height: '24px' }}></div>
             
             <div className="d-flex align-items-center">
               <label htmlFor="file-switch" className="fw-semibold small me-2 text-primary mb-0" style={{ cursor: 'pointer' }}>Bắt buộc nộp Bài/File</label>
               <Form.Check type="switch" id="file-switch" name="require_file" checked={!!formData.require_file} onChange={handleChange} className="m-0 fs-5" />
+            </div>
+            
+            {/* 👇 BỔ SUNG: NÚT CẤU HÌNH DÀNH RIÊNG CHO CÁN BỘ LỚP 👇 */}
+            <div className="border-start border-secondary opacity-25 mx-2 d-none d-md-block" style={{ height: '24px' }}></div>
+            
+            <div className="d-flex align-items-center">
+              <label htmlFor="committee-switch" className="fw-semibold small me-2 text-warning mb-0" style={{ cursor: 'pointer' }}>
+                <i className="bi bi-star-fill me-1"></i>Chỉ Cán bộ lớp
+              </label>
+              <Form.Check type="switch" id="committee-switch" name="require_class_committee" checked={!!formData.require_class_committee} onChange={handleChange} className="m-0 fs-5" />
             </div>
           </div>
         </div>
@@ -1073,7 +1088,6 @@ const EventManagement = ({ searchQuery = '' }) => {
         <h3 className="fw-bold mb-0">Quản lý Sự kiện</h3>
         <div className="d-flex gap-3 flex-wrap align-items-center">
           
-          {/* --- THANH TÌM KIẾM TRỰC TIẾP TRÊN TRANG --- */}
           <InputGroup className="shadow-sm" style={{ width: '280px' }}>
             <InputGroup.Text className="bg-white border-end-0 text-muted">
               <i className="bi bi-search"></i>
@@ -1100,7 +1114,6 @@ const EventManagement = ({ searchQuery = '' }) => {
               </InputGroup.Text>
             )}
           </InputGroup>
-          {/* -------------------------------------- */}
 
           <div className="d-flex bg-white border rounded shadow-sm">
             <div className="d-flex align-items-center px-3 bg-light text-muted border-end rounded-start">
@@ -1158,7 +1171,7 @@ const EventManagement = ({ searchQuery = '' }) => {
               return (
                 <Col md={6} key={evt.id}>
                   <Card className={`dashboard-card h-100 border-0 shadow-sm ${isDeactivated ? 'opacity-75 bg-light' : ''}`}>
-                    <Card.Img variant="top" src={evt.poster_url ? (evt.poster_url.startsWith('http') ? evt.poster_url : `https://doan3-ooha.onrender.com${evt.poster_url}`) : defaultPoster} style={{ height: '160px', objectFit: 'cover', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }} alt="Poster" />
+                    <Card.Img variant="top" src={evt.poster_url ? `https://doan3-ooha.onrender.com${evt.poster_url}` : defaultPoster} style={{ height: '160px', objectFit: 'cover', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }} alt="Poster" />
                     <Card.Body className="d-flex flex-column p-3">
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <Badge bg={theme} className={`bg-opacity-10 text-${theme === 'warning' ? 'dark' : theme} rounded-pill px-3 py-2 fw-semibold text-uppercase`}>{evt.category}</Badge>
@@ -1281,8 +1294,6 @@ const EventManagement = ({ searchQuery = '' }) => {
         <th className="py-3">CHI ĐOÀN / KHOA</th>
         <th className="py-3">THỜI GIAN CHECK-IN</th>
         <th className="py-3">PHƯƠNG THỨC</th>
-        
-        {/* Đã đồng bộ tiêu đề cột */}
         <th className="text-center py-3">SỐ LƯỢT NỘP</th>
         <th className="text-center py-3">ĐIỂM CỘNG DỒN</th>
         <th className="py-3 text-center">BÀI NỘP</th>
@@ -1303,20 +1314,17 @@ const EventManagement = ({ searchQuery = '' }) => {
             <td className="py-2 text-muted">{p.checkin_time}</td>
             <td className="py-2"><Badge bg="info" className="bg-opacity-10 text-info px-2 py-1">{p.method}</Badge></td>
             
-            {/* 1. BỔ SUNG Ô HIỂN THỊ: SỐ LƯỢT NỘP MINH CHỨNG */}
             <td className="py-2 text-center fw-bold text-secondary">
               {p.total_turns || 0} lần
             </td>
 
-            {/* 2. BỔ SUNG Ô HIỂN THỊ: TỔNG ĐIỂM CỘNG DỒN ĐẠT ĐƯỢC */}
             <td className="py-2 text-center fw-bold text-success">
               +{p.accumulated_points || 0} ĐRL
             </td>
 
-            {/* 3. ĐÃ FIX: TRẢ NÚT FILE/LINK VỀ ĐÚNG CỘT BÀI NỘP */}
             <td className="py-2 text-center">
               {p.file && (
-                <a href={p.file?.startsWith('http') ? p.file : `https://doan3-ooha.onrender.com${p.file}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary py-0 px-2 me-1 mb-1" title="Tải File đính kèm">
+                <a href={`https://doan3-ooha.onrender.com${p.file}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary py-0 px-2 me-1 mb-1" title="Tải File đính kèm">
                   <i className="bi bi-download"></i> File
                 </a>
               )}

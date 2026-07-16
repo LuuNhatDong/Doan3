@@ -11,6 +11,7 @@ class EventDetailScreen extends StatefulWidget {
   final Map<String, dynamic> event;
   final bool isRegistered;
   final String? mssv;
+  final Map<String, dynamic> userData; // BỔ SUNG: Truyền userData để check quyền
   final VoidCallback onStateChanged;
 
   const EventDetailScreen({
@@ -18,6 +19,7 @@ class EventDetailScreen extends StatefulWidget {
     required this.event,
     required this.isRegistered,
     required this.mssv,
+    required this.userData, // BỔ SUNG
     required this.onStateChanged,
   }) : super(key: key);
 
@@ -133,10 +135,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             }
           } catch (_) {}
         }
+      } else {
+        // Show lỗi từ API (VD: Chặn sai quyền)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('⚠️ ${response.data['message']}'), backgroundColor: Colors.orange));
       }
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Lỗi mạng: $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -159,6 +165,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     bool isFacultyFull = _isFacultyLimitReached();
     bool pastRegisterDeadline = false;
 
+    // KIỂM TRA QUYỀN TRÊN NÚT BẤM
+    final String userRole = widget.userData['role']?.toString().toLowerCase() ?? 'student';
+    final bool requireClassCommittee = widget.event['require_class_committee'] == 1 || widget.event['require_class_committee'] == '1' || widget.event['require_class_committee'] == true;
+    final bool isClassCommittee = userRole == 'classcommittee' || userRole == 'admin' || userRole == 'superadmin';
+    final bool isRestrictedForMe = requireClassCommittee && !isClassCommittee;
+
     if (widget.event['date'] != null) {
       try {
         DateTime startTime = DateTime.parse(widget.event['date']);
@@ -171,7 +183,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (_isOngoing) {
       if (_isRegistered) {
         return ElevatedButton(
-onPressed: _isCheckedIn ? null : () async {
+          onPressed: _isCheckedIn ? null : () async {
             bool? isSuccess = false;
             
             // 1. Lấy trạng thái của cả 3 công tắc
@@ -195,7 +207,6 @@ onPressed: _isCheckedIn ? null : () async {
                 isSuccess = true;
               }
             } else if (!reqGps && needsSubmission) {
-              // Chuyển thẳng tới trang nộp bài nếu không yêu cầu GPS
               final proofResult = await Navigator.push(context, MaterialPageRoute(
                 builder: (context) => EvidenceSubmitScreen(
                   userData: {'mssv': widget.mssv},
@@ -203,12 +214,11 @@ onPressed: _isCheckedIn ? null : () async {
                   initialEventName: widget.event['name'],
                   initialCategory: widget.event['category'],
                   requireProof: reqProof,
-                  requireFile: reqFile, // <-- Truyền trạng thái nộp file sang
+                  requireFile: reqFile,
                 )
               ));
               isSuccess = proofResult;
             } else {
-              // Sự kiện chỉ quét QR/GPS đơn thuần (Không nộp ảnh, Không nộp file)
               final qrResult = await Navigator.push(context, MaterialPageRoute(
                 builder: (context) => QRScanScreen(
                   userData: {'mssv': widget.mssv}, 
@@ -235,6 +245,16 @@ onPressed: _isCheckedIn ? null : () async {
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
           ),
         );
+      } else if (isRestrictedForMe) {
+        return ElevatedButton(
+          onPressed: null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey,
+            disabledBackgroundColor: Colors.grey.shade400,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: const Text('Chỉ dành cho Cán bộ lớp', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        );
       } else if (!pastRegisterDeadline && !isFacultyFull) {
         return ElevatedButton(
           onPressed: _handleRegister,
@@ -257,6 +277,18 @@ onPressed: _isCheckedIn ? null : () async {
       }
     } else {
       // TRƯỜNG HỢP: SẮP DIỄN RA
+      if (isRestrictedForMe && !_isRegistered) {
+        return ElevatedButton(
+          onPressed: null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey,
+            disabledBackgroundColor: Colors.grey.shade400,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          child: const Text('Chỉ dành cho Cán bộ lớp', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        );
+      }
+
       return ElevatedButton(
         onPressed: (_isRegistered || isFacultyFull) ? null : _handleRegister,
         style: ElevatedButton.styleFrom(
@@ -373,6 +405,9 @@ onPressed: _isCheckedIn ? null : () async {
     final String dateStart = widget.event['date'] ?? 'Đang cập nhật';
     final String dateEnd = widget.event['end_date'] ?? 'Đang cập nhật';
     
+    // BỔ SUNG: Kiểm tra xem sự kiện có dành cho cán bộ lớp hay không
+    final bool requireClassCommittee = widget.event['require_class_committee'] == 1 || widget.event['require_class_committee'] == '1' || widget.event['require_class_committee'] == true;
+
     String rawDescription = widget.event['description'] ?? widget.event['event_description'] ?? '';
     final String description = (rawDescription.trim().isNotEmpty) ? rawDescription.trim() : 'Không có nội dung mô tả chi tiết cho hoạt động này.';
     final dynamic rawFile = widget.event['attached_file'] ?? widget.event['event_attached_file'];
@@ -495,6 +530,24 @@ onPressed: _isCheckedIn ? null : () async {
                             Expanded(child: Text('Kết thúc: ${_formatDateTime(dateEnd)}', style: const TextStyle(fontSize: 14, color: Colors.black87))),
                           ],
                         ),
+                        
+                        // BỔ SUNG HIỂN THỊ NẾU LÀ SỰ KIỆN DÀNH CHO CÁN BỘ LỚP
+                        if (requireClassCommittee) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(Icons.security, color: Colors.orange.shade800, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Đối tượng: Chỉ dành cho Cán bộ lớp',
+                                  style: TextStyle(fontSize: 14, color: Colors.orange.shade800, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -625,7 +678,7 @@ onPressed: _isCheckedIn ? null : () async {
         child: SizedBox(
           width: double.infinity,
           height: 48,
-          child: _buildBottomButton(), // ĐÃ CHUYỂN VÀO HÀM _buildBottomButton ĐỂ TRÁNH LỖI DẤU NGOẶC
+          child: _buildBottomButton(), 
         ),
       ),
     );

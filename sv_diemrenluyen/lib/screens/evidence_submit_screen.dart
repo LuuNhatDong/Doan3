@@ -508,12 +508,10 @@ Map<String, dynamic> mapData = {
                     children: [
                       Row(
                         children: [
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: const Color(0xFFE8EFFF), borderRadius: BorderRadius.circular(4)),
-                              child: Text(item['category']?.toString() ?? 'Tham gia học tập', style: const TextStyle(color: Color(0xFF0D235E), fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFFE8EFFF), borderRadius: BorderRadius.circular(4)),
+                            child: Text(item['category']?.toString() ?? 'Tham gia học tập', style: const TextStyle(color: Color(0xFF0D235E), fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 8),
                           Container(
@@ -748,9 +746,7 @@ Map<String, dynamic> mapData = {
                                 children: [
                                   Icon(isRejected ? Icons.replay_rounded : Icons.edit_document, color: Colors.white, size: 18),
                                   const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(isRejected ? 'MINH CHỨNG BỊ TỪ CHỐI - BẤM ĐỂ NỘP LẠI' : 'CHỜ XÁC NHẬN', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ),
+                                  Text(isRejected ? 'MINH CHỨNG BỊ TỪ CHỐI - BẤM ĐỂ NỘP LẠI' : 'CHỜ XÁC NHẬN', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                                 ],
                               ),
                             ),
