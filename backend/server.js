@@ -271,6 +271,30 @@ const ensureLocationPresetTable = () => {
 };
 ensureLocationPresetTable();
 
+const fixDatabaseCollation = () => {
+    db.query("SHOW TABLES", (err, rows) => {
+        if (err) {
+            console.warn("⚠️ Không thể liệt kê bảng để kiểm tra Collation:", err.message);
+            return;
+        }
+        const dbName = process.env.DB_NAME || 'quanlysukien3';
+        const key = `Tables_in_${dbName}`;
+        for (let row of rows) {
+            const tableName = row[key] || Object.values(row)[0];
+            if (tableName) {
+                db.query(`ALTER TABLE \`${tableName}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`, (alterErr) => {
+                    if (alterErr) {
+                        console.warn(`⚠️ Không thể chuyển Collation cho bảng ${tableName}:`, alterErr.message);
+                    } else {
+                        console.log(`✅ Đã đồng bộ Collation utf8mb4_general_ci cho bảng: ${tableName}`);
+                    }
+                });
+            }
+        }
+    });
+};
+fixDatabaseCollation();
+
 const DEFAULT_PASSWORD = '123456';
 const DEFAULT_PASSWORD_HASH = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
 
