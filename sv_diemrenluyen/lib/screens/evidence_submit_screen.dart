@@ -786,33 +786,32 @@ Map<String, dynamic> mapData = {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx); // Đóng dialog
-              // Luôn quay về màn hình trước nếu được mở từ QR scan hoặc từ màn hình khác
-              if (widget.initialEventId != null) {
-                // Đến từ QR scan screen -> luôn pop về
-                Navigator.pop(context, true);
-              } else if (Navigator.canPop(context)) {
-                Navigator.pop(context, true); 
-              } else {
-                setState(() {
-                  _nameController.clear();
-                  _selectedCategory = null;
-                  _selectedEventId = null;
-                  _selectedImage = null;
-                  _imageBytes = null;
-                  _selectedFile = null;
-                  _linkController.clear();
-                  _hasSubmittedSuccessfully = false;
-                });
-                _fetchOngoingEvents(); 
-              }
-            }, 
+            onPressed: () => Navigator.pop(ctx), // Đóng dialog trước
             child: const Text('Đóng', style: TextStyle(color: Color(0xFF0D235E), fontWeight: FontWeight.bold))
           )
         ],
       ),
-    );
+    ).then((_) {
+      if (!mounted) return;
+      // Luôn quay về màn hình trước nếu được mở từ QR scan hoặc từ màn hình khác
+      if (widget.initialEventId != null) {
+        Navigator.pop(context, true);
+      } else if (Navigator.canPop(context)) {
+        Navigator.pop(context, true); 
+      } else {
+        setState(() {
+          _nameController.clear();
+          _selectedCategory = null;
+          _selectedEventId = null;
+          _selectedImage = null;
+          _imageBytes = null;
+          _selectedFile = null;
+          _linkController.clear();
+          _hasSubmittedSuccessfully = false;
+        });
+        _fetchOngoingEvents(); 
+      }
+    });
   }
 
   @override
