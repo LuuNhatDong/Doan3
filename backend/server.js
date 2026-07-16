@@ -143,6 +143,7 @@ const ensureEventColumns = () => {
     // --- THÊM DÒNG DƯỚI ĐÂY ĐỂ VÁ LỖI CSDL ---
     ensureColumn('events', 'score_type', "VARCHAR(50) DEFAULT 'once'");
     ensureColumn('events', 'sample_proof_url', "VARCHAR(255) NULL");
+    ensureColumn('events', 'require_class_committee', 'TINYINT(1) DEFAULT 0');
 
     db.query("SHOW COLUMNS FROM events LIKE 'category'", (err, rows) => {
         if (err) {
@@ -559,7 +560,7 @@ const {
     id, name, date, end_date, description, category, status, 
     require_gps, latitude, longitude, location_preset_id, 
     required_fields, points, max_participants, require_proof, 
-    require_file, // <--- THÊM BIẾN NÀY VÀO ĐÂY
+    require_file, require_class_committee,
     faculty_limits, score_type 
 } = req.body;    const requireGpsEnabled = require_gps === true || require_gps === 1 || require_gps === '1' || require_gps === 'true';
     const MAX_TRAINING_POINTS = 100;
@@ -607,6 +608,7 @@ const {
         max_participants: max_participants ? Number(max_participants) : 0,
         require_proof: require_proof !== undefined ? Number(require_proof) : 1,
         require_file: (require_file === 'true' || require_file == 1) ? 1 : 0,
+        require_class_committee: (require_class_committee === 'true' || require_class_committee == 1 || require_class_committee === true) ? 1 : 0,
         faculty_limits: faculty_limits || null,
         score_type: score_type || 'once'
     };
@@ -620,8 +622,7 @@ const {
 app.put('/api/events/:id', upload.fields([{ name: 'poster', maxCount: 1 }, { name: 'sample_proof', maxCount: 1 }, { name: 'attached_files', maxCount: 10 }]), async (req, res) => {
     const eventId = req.params.id;
     
-    // 1. Đã bổ sung require_file vào destructing từ req.body
-    const { name, date, end_date, description, category, status, require_gps, latitude, longitude, location_preset_id, required_fields, points, max_participants, require_proof, require_file, faculty_limits, score_type } = req.body;
+    const { name, date, end_date, description, category, status, require_gps, latitude, longitude, location_preset_id, required_fields, points, max_participants, require_proof, require_file, require_class_committee, faculty_limits, score_type } = req.body;
     
     const requireGpsEnabled = require_gps === true || require_gps === 1 || require_gps === '1' || require_gps === 'true';
 
@@ -648,12 +649,10 @@ app.put('/api/events/:id', upload.fields([{ name: 'poster', maxCount: 1 }, { nam
         attached_file_string = JSON.stringify(arr);
     }
 
-    // 2. Đã bổ sung require_file=? vào chuỗi SQL (ngay trước faculty_limits=?)
-    let sql = "UPDATE events SET name=?, date=?, end_date=?, description=?, category=?, status=?, require_gps=?, latitude=?, longitude=?, location_preset_id=?, required_fields=?, points=?, max_participants=?, require_proof=?, require_file=?, faculty_limits=?, score_type=?";
+    let sql = "UPDATE events SET name=?, date=?, end_date=?, description=?, category=?, status=?, require_gps=?, latitude=?, longitude=?, location_preset_id=?, required_fields=?, points=?, max_participants=?, require_proof=?, require_file=?, require_class_committee=?, faculty_limits=?, score_type=?";
     const MAX_TRAINING_POINTS = 100;
     const safePoints = Math.min(Math.max(Number(points || 0), 0), MAX_TRAINING_POINTS);
 
-    // 3. Params đã khớp với số lượng dấu ? trong chuỗi SQL
     let params = [
         name, date, end_date, description, category || 'Khác', status,
         requireGpsEnabled ? 1 : 0, requireGpsEnabled ? (latitude || null) : null,
@@ -662,6 +661,7 @@ app.put('/api/events/:id', upload.fields([{ name: 'poster', maxCount: 1 }, { nam
         safePoints, max_participants ? Number(max_participants) : 0,
         require_proof !== undefined ? Number(require_proof) : 1,
         (require_file === 'true' || require_file == 1 || require_file === true) ? 1 : 0,
+        (require_class_committee === 'true' || require_class_committee == 1 || require_class_committee === true) ? 1 : 0,
         faculty_limits || null,
         score_type || 'once'
     ];
@@ -746,32 +746,33 @@ app.put('/api/profile', upload.single('avatar'), async (req, res) => {
 app.get('/api/events/:id/participants', (req, res) => {
     const eventId = req.params.id;
     
-    // Nâng cấp SQL: Bổ sung đếm số lượt minh chứng (lượt nộp) và tổng điểm cộng dồn
     const sql = `
         SELECT u.mssv AS student_id,
                u.full_name AS name,
                COALESCE(u.phone, '') AS phone,
                COALESCE(u.chi_doan, '') AS chi_doan,
                a.checkin_time AS checkin_time,
-               COALESCE(a.method, 'Quét mã QR') AS method,
+               IF(a.id IS NULL, 'Chưa điểm danh', COALESCE(a.method, 'Quét mã QR')) AS method,
                a.submitted_file,
                a.submitted_link,
-               COUNT(p.id) AS total_turns, -- BỘ ĐẾM SỐ LƯỢT NỘP
-               SUM(IF(p.status = 'approved', e.points, 0)) AS accumulated_points -- TỔNG ĐIỂM CỘNG DỒN ĐÃ DUYỆT
-        FROM attendance a  
-        JOIN users u ON (
-            CAST(a.student_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci 
-            OR CAST(a.student_id AS CHAR) COLLATE utf8mb4_unicode_ci = u.mssv COLLATE utf8mb4_unicode_ci
+               COUNT(p.id) AS total_turns,
+               SUM(IF(p.status = 'approved', e.points, 0)) AS accumulated_points
+        FROM event_registrations er
+        JOIN users u ON er.mssv COLLATE utf8mb4_unicode_ci = u.mssv COLLATE utf8mb4_unicode_ci
+        JOIN events e ON er.event_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci
+        LEFT JOIN attendance a ON (
+            a.event_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci 
+            AND (CAST(a.student_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci 
+                 OR CAST(a.student_id AS CHAR) COLLATE utf8mb4_unicode_ci = u.mssv COLLATE utf8mb4_unicode_ci)
         )
-        JOIN events e ON a.event_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci
         LEFT JOIN proofs p ON (
             p.event_id COLLATE utf8mb4_unicode_ci = e.id COLLATE utf8mb4_unicode_ci 
             AND (CAST(p.student_id AS CHAR) COLLATE utf8mb4_unicode_ci = CAST(u.id AS CHAR) COLLATE utf8mb4_unicode_ci 
                  OR p.student_id = u.mssv COLLATE utf8mb4_unicode_ci)
         )
-        WHERE a.event_id COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci
-        GROUP BY u.mssv, u.full_name, u.phone, u.chi_doan, a.checkin_time, a.method, a.submitted_file, a.submitted_link
-        ORDER BY a.checkin_time DESC
+        WHERE er.event_id COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci
+        GROUP BY u.mssv, u.full_name, u.phone, u.chi_doan, a.checkin_time, a.method, a.submitted_file, a.submitted_link, a.id
+        ORDER BY a.checkin_time IS NULL ASC, a.checkin_time DESC
     `;
 
     db.query(sql, [eventId], (err, results) => {
@@ -784,12 +785,12 @@ app.get('/api/events/:id/participants', (req, res) => {
             name: row.name,
             phone: row.phone || '',
             chi_doan: row.chi_doan || '',
-            checkin_time: row.checkin_time ? new Date(row.checkin_time).toLocaleString('vi-VN') : '',
+            checkin_time: row.checkin_time ? new Date(row.checkin_time).toLocaleString('vi-VN') : 'Chưa điểm danh',
             method: row.method,
             file: row.submitted_file || null,
             link: row.submitted_link || null,
-            total_turns: row.total_turns || 0, // Trả về số lượt đã nộp
-            accumulated_points: row.accumulated_points || 0 // Trả về tổng điểm
+            total_turns: row.total_turns || 0,
+            accumulated_points: row.accumulated_points || 0
         })));
     });
 });
@@ -1795,10 +1796,11 @@ app.post('/api/mobile/register_event', (req, res) => {
     const { mssv, event_id } = req.body;
     if (!mssv || !event_id) return res.json({ status: "error", message: "Thiếu thông tin xác thực." });
 
-    db.query("SELECT email FROM users WHERE mssv COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [mssv], (err, users) => {
+    db.query("SELECT email, role FROM users WHERE mssv COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [mssv], (err, users) => {
         if (err || users.length === 0) return res.json({ status: "error", message: "Mã số sinh viên không tồn tại." });
 
         const userEmail = users[0].email || '';
+        const userRole = (users[0].role || 'student').toLowerCase();
         let studentNganh = 'KHAC';
 
         const match = userEmail.match(/([a-zA-Z]{4})(\d{7})@/);
@@ -1808,10 +1810,17 @@ app.post('/api/mobile/register_event', (req, res) => {
             studentNganh = mssv.substring(0, 4).toUpperCase();
         }
 
-        db.query("SELECT date, status, faculty_limits, max_participants FROM events WHERE id COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [event_id], (err, events) => {
+        db.query("SELECT date, status, faculty_limits, max_participants, require_class_committee FROM events WHERE id COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [event_id], (err, events) => {
             if (err || events.length === 0) return res.json({ status: "error", message: "Sự kiện không tồn tại." });
 
             const event = events[0];
+            
+            // 1. CHẶN QUYỀN CÁN BỘ LỚP
+            if (event.require_class_committee === 1 && !['classcommittee', 'admin', 'superadmin'].includes(userRole)) {
+                return res.json({ status: "error", message: "Sự kiện này chỉ dành riêng cho Cán bộ lớp / Ban cán sự." });
+            }
+            
+            // 2. CHẶN TRẠNG THÁI VÀ THỜI GIAN
             if (event.status === 'Ngừng hoạt động') {
                 return res.json({ status: "error", message: "Sự kiện hiện đã đóng, không nhận đăng ký thêm." });
             }
@@ -1820,33 +1829,48 @@ app.post('/api/mobile/register_event', (req, res) => {
                 const startTime = new Date(event.date).getTime();
                 const currentTime = Date.now();
                 const deadLineTime = startTime + (30 * 60 * 1000); 
-
                 if (currentTime > deadLineTime) {
-                    return res.json({
-                        status: "error",
-                        message: "Đăng ký thất bại! Sự kiện đã diễn ra quá 30 phút, hệ thống đã đóng cổng đăng ký bổ sung."
-                    });
+                    return res.json({ status: "error", message: "Đăng ký thất bại! Sự kiện đã diễn ra quá 30 phút." });
                 }
             }
 
+            // 3. VÁ LỖI LOGIC: PHÂN BỔ CHỈ TIÊU TỪNG NGÀNH
             const facultyLimitsStr = event.faculty_limits;
-            let limitForThisNganh = null;
+            const maxParticipants = parseInt(event.max_participants) || 0;
+            let isFacultyRestricted = false;
+            let limitForThisNganh = 0;
 
-            if (facultyLimitsStr) {
+            if (facultyLimitsStr && maxParticipants > 0) {
                 try {
                     const limitsJson = JSON.parse(facultyLimitsStr);
-                    if (limitsJson && limitsJson[studentNganh] !== undefined && limitsJson[studentNganh] !== '') {
-                        limitForThisNganh = parseInt(limitsJson[studentNganh]);
+                    // Kiểm tra xem có bất kỳ ngành nào được set chỉ tiêu > 0 không
+                    const hasAnyLimit = Object.values(limitsJson).some(val => val !== '' && parseInt(val) > 0);
+                    
+                    if (hasAnyLimit) {
+                        isFacultyRestricted = true; // Sự kiện này có phân bổ ngành
+                        if (limitsJson[studentNganh] !== undefined && limitsJson[studentNganh] !== '') {
+                            limitForThisNganh = parseInt(limitsJson[studentNganh]);
+                        }
                     }
                 } catch (e) {
-                    console.error("Lỗi phân tích JSON faculty_limits:", e);
+                    console.error("Lỗi parse JSON faculty_limits:", e);
                 }
             }
 
+            // Nếu sự kiện có phân bổ ngành, nhưng ngành của sinh viên này có limit = 0 hoặc bị bỏ trống -> Bị chặn
+            if (isFacultyRestricted && limitForThisNganh <= 0) {
+                return res.json({ 
+                    status: "error", 
+                    message: `Đăng ký thất bại! Sự kiện không phân bổ chỉ tiêu cho ngành của bạn (${studentNganh}).` 
+                });
+            }
+
+            // 4. KIỂM TRA TRÙNG LẶP VÀ GHI NHẬN VÀO CSDL
             db.query("SELECT id FROM event_registrations WHERE mssv COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci AND event_id COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [mssv, event_id], (err, regs) => {
                 if (regs.length > 0) return res.json({ status: "error", message: "Bạn đã đăng ký sự kiện này rồi!" });
 
-                if (limitForThisNganh !== null && limitForThisNganh > 0) {
+                if (isFacultyRestricted) {
+                    // Kiểm tra suất của riêng ngành đó
                     const countSql = `
                         SELECT COUNT(*) AS registered_count 
                         FROM event_registrations er
@@ -1859,20 +1883,27 @@ app.post('/api/mobile/register_event', (req, res) => {
 
                         const currentRegistered = countRes[0].registered_count || 0;
                         if (currentRegistered >= limitForThisNganh) {
-                            return res.json({
-                                status: "error",
-                                message: `Đăng ký thất bại! Chỉ tiêu dành cho ngành của bạn (${studentNganh}) đã hết suất (${currentRegistered}/${limitForThisNganh} suất).`
-                            });
+                            return res.json({ status: "error", message: `Đăng ký thất bại! Ngành của bạn (${studentNganh}) đã hết suất (${currentRegistered}/${limitForThisNganh}).` });
                         }
 
                         db.query("INSERT INTO event_registrations (mssv, event_id) VALUES (?, ?)", [mssv, event_id], (insErr) => {
-                            if (insErr) return res.json({ status: "error", message: "Lỗi ghi nhận đăng ký: " + insErr.message });
+                            if (insErr) return res.json({ status: "error", message: "Lỗi ghi nhận đăng ký." });
+                            res.json({ status: "success", message: "Đăng ký tham gia thành công!" });
+                        });
+                    });
+                } else if (maxParticipants > 0) {
+                    // Kiểm tra tổng suất (Khi không chia ngành)
+                    db.query("SELECT COUNT(*) as total_reg FROM event_registrations WHERE event_id = ?", [event_id], (totErr, totRes) => {
+                        if (totRes[0].total_reg >= maxParticipants) {
+                            return res.json({ status: "error", message: `Đăng ký thất bại! Sự kiện đã đủ số lượng tham gia (${totRes[0].total_reg}/${maxParticipants}).` });
+                        }
+                        db.query("INSERT INTO event_registrations (mssv, event_id) VALUES (?, ?)", [mssv, event_id], () => {
                             res.json({ status: "success", message: "Đăng ký tham gia thành công!" });
                         });
                     });
                 } else {
+                    // Không giới hạn bất cứ gì
                     db.query("INSERT INTO event_registrations (mssv, event_id) VALUES (?, ?)", [mssv, event_id], (insErr) => {
-                        if (insErr) return res.json({ status: "error", message: "Lỗi ghi nhận đăng ký: " + insErr.message });
                         res.json({ status: "success", message: "Đăng ký tham gia thành công!" });
                     });
                 }
@@ -1890,11 +1921,12 @@ app.post('/api/mobile/checkin_event', (req, res) => {
     if (!mssv || !event_id) return res.json({ status: "error", message: "Thiếu thông tin điểm danh." });
 
     // 1. Xác thực tài khoản sinh viên
-    db.query("SELECT id, mssv FROM users WHERE mssv COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [mssv], (err, users) => {
+    db.query("SELECT id, mssv, role FROM users WHERE mssv COLLATE utf8mb4_unicode_ci = ? COLLATE utf8mb4_unicode_ci", [mssv], (err, users) => {
         if (err || users.length === 0) return res.json({ status: "error", message: "Không tìm thấy thông tin sinh viên." });
 
         const userId = users[0].id;
         const studentMssv = users[0].mssv || mssv;
+        const userRole = (users[0].role || 'student').toLowerCase();
 
         // 2. CHẶN SPAM: Kiểm tra trùng lặp bản ghi lịch sử trong bảng attendance
         const sqlCheckAttendance = `
@@ -1925,11 +1957,17 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                 }
 
                 // Lấy thông tin cấu hình sự kiện (Kèm theo Tọa độ tổ chức)
-                db.query("SELECT require_gps, require_proof, points, category, latitude, longitude FROM events WHERE id = ?", [event_id], (eventErr, eventRows) => {
+                db.query("SELECT require_gps, require_proof, points, category, latitude, longitude, require_class_committee FROM events WHERE id = ?", [event_id], (eventErr, eventRows) => {
                     if (eventErr || eventRows.length === 0) {
                         return res.json({ status: "error", message: "Không tìm thấy cấu hình sự kiện." });
                     }
                     const event = eventRows[0];
+                    
+                    // 👇 BỘ LỌC CHẶN SINH VIÊN THƯỜNG QUÉT MÃ QR 👇
+                    if (event.require_class_committee === 1 && !['classCommittee', 'classcommittee', 'admin', 'superadmin'].includes(userRole)) {
+                        return res.json({ status: "error", message: "Từ chối điểm danh! Chỉ Cán bộ lớp / Ban cán sự mới được tham gia sự kiện này." });
+                    }
+
                     const requireGps = event.require_gps === 1 || event.require_gps === '1';
                     const requireProof = event.require_proof === 1 || event.require_proof === '1';
                     const points = event.points || 0;
@@ -1943,7 +1981,7 @@ app.post('/api/mobile/checkin_event', (req, res) => {
 
                         if (eventLat && eventLng) {
                             if (!userLat || !userLng) {
-                                return res.json({ status: "error", message: "Thiết bị chưa gửi tọa độ. Vui lòng bật định vị GPS!" });
+                                  return res.json({ status: "error", message: "Thiết bị chưa gửi tọa độ. Vui lòng bật định vị GPS!" });
                             }
 
                             // Tính khoảng cách theo công thức Haversine
@@ -1980,7 +2018,7 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                         db.query(sqlAtt, [event_id, studentMssv, method], (attErr) => {
                             if (attErr) console.warn("⚠️ Cảnh báo lỗi đồng bộ bảng attendance:", attErr.message);
 
-                            if (!requireProof) {
+                            if (requireGps || !requireProof) {
                                 const proofId = 'PR_AUTO_' + Math.floor(Date.now() / 1000) + '_' + Math.floor(Math.random() * 1000);
                                 const sqlProof = `INSERT INTO proofs (id, student_id, event_id, image_url, image_hash, ocr_match_percent, phash_warning, status, ai_note) 
                                                   VALUES (?, ?, ?, 'Check-in trực tiếp (Không cần minh chứng)', 'N/A', 100, 0, 'approved', 'Hệ thống tự động duyệt trực tiếp qua check-in QR/GPS')`;
@@ -2041,8 +2079,8 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                             }
                         });
                     });
-                });
-            });
+                }
+            );
         });
     });
 });
