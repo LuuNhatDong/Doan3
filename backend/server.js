@@ -1562,7 +1562,7 @@ app.get('/api/mobile/events', (req, res) => {
             e.id, e.name, e.date, e.end_date, e.category, e.poster_url,
             e.attached_file, e.description, e.status, e.require_gps, e.require_file,
             e.require_proof, e.points, e.max_participants, e.faculty_limits,
-            e.score_type,
+            e.score_type, e.latitude, e.longitude,
             (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id) as current_participants,
             IF(er.id IS NOT NULL, 1, 0) as is_registered,
             IF(
