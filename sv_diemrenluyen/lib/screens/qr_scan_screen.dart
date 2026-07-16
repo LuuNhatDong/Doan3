@@ -309,7 +309,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
       }
 
       // ĐIỀU PHỐI ĐIỂM DANH
-      if (requireGps || !requireProof) {
+      if (!requireProof) {
         // SỬA LỖI: Gỡ bỏ showDialog loading và Navigator.pop(context) gây lỗi trắng màn hình
         try {
           final checkInRes = await _dio.post(
@@ -334,7 +334,9 @@ class _QRScanScreenState extends State<QRScanScreen> {
                   children: [
                     Icon(Icons.check_circle, color: Color(0xFF2ECA7F)),
                     SizedBox(width: 8),
-                    Text('Điểm danh thành công', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text('Điểm danh thành công', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
                 content: Text(

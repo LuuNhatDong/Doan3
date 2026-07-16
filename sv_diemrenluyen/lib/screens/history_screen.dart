@@ -168,12 +168,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       // Khối 1: Các nhãn phân loại, trạng thái & Điểm thưởng (+ X ĐRL)
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: const Color(0xFFE8EFFF), borderRadius: BorderRadius.circular(4)),
-                            child: Text(
-                              item['category']?.toString() ?? 'Tham gia học tập',
-                              style: const TextStyle(color: Color(0xFF0D235E), fontSize: 11, fontWeight: FontWeight.bold),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: const Color(0xFFE8EFFF), borderRadius: BorderRadius.circular(4)),
+                              child: Text(
+                                item['category']?.toString() ?? 'Tham gia học tập',
+                                style: const TextStyle(color: Color(0xFF0D235E), fontSize: 11, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -480,9 +484,14 @@ IconButton(
                                     size: 18
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    isRejected ? 'MINH CHỨNG BỊ TỪ CHỐI - BẤM ĐỂ NỘP LẠI' : 'ĐANG CHỜ DUYỆT - BẤM ĐỂ CẬP NHẬT LẠI',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  Expanded(
+                                    child: Text(
+                                      isRejected ? 'MINH CHỨNG BỊ TỪ CHỐI - BẤM ĐỂ NỘP LẠI' : 'ĐANG CHỜ DUYỆT - BẤM ĐỂ CẬP NHẬT LẠI',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),

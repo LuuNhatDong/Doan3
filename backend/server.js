@@ -1980,7 +1980,7 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                         db.query(sqlAtt, [event_id, studentMssv, method], (attErr) => {
                             if (attErr) console.warn("⚠️ Cảnh báo lỗi đồng bộ bảng attendance:", attErr.message);
 
-                            if (requireGps || !requireProof) {
+                            if (!requireProof) {
                                 const proofId = 'PR_AUTO_' + Math.floor(Date.now() / 1000) + '_' + Math.floor(Math.random() * 1000);
                                 const sqlProof = `INSERT INTO proofs (id, student_id, event_id, image_url, image_hash, ocr_match_percent, phash_warning, status, ai_note) 
                                                   VALUES (?, ?, ?, 'Check-in trực tiếp (Không cần minh chứng)', 'N/A', 100, 0, 'approved', 'Hệ thống tự động duyệt trực tiếp qua check-in QR/GPS')`;
