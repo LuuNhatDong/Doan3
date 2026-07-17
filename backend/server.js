@@ -1111,7 +1111,8 @@ app.post('/api/proofs/upload_ai', upload.fields([{ name: 'proof_image', maxCount
                         if (fs.existsSync(absoluteSamplePath)) pythonForm.append('sample_proof_image', fs.createReadStream(absoluteSamplePath));
                     }
 
-                    const pythonResponse = await axios.post('http://localhost:8000/api/analyze-proof', pythonForm, { headers: { ...pythonForm.getHeaders() }, timeout: 15000 });
+                    const aiServerUrl = process.env.AI_SERVER_URL || 'http://localhost:8000';
+                    const pythonResponse = await axios.post(`${aiServerUrl}/api/analyze-proof`, pythonForm, { headers: { ...pythonForm.getHeaders() }, timeout: 15000 });
                     
                     image_hash = pythonResponse.data.image_hash || 'N/A';
                     ocr_match_percent = pythonResponse.data.ocr_match_percent || 0;
