@@ -1118,6 +1118,13 @@ app.post('/api/proofs/upload_ai', upload.fields([{ name: 'proof_image', maxCount
                     ocr_match_percent = pythonResponse.data.ocr_match_percent || 0;
                     extracted_text = pythonResponse.data.extracted_text || '';
                     
+                    const missingFields = pythonResponse.data.missing_fields || [];
+                    if (missingFields.length > 0) {
+                        ai_note = "Thiếu: " + missingFields.join(", ");
+                    } else {
+                        ai_note = "Thông tin minh chứng hợp lệ";
+                    }
+                    
                     // Logic duyệt ảnh tự động
                     if (aiSystemSettings.autoApprove && ocr_match_percent >= aiSystemSettings.ocrThreshold) {
                         ai_status = 'approved';
