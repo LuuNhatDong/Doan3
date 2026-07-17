@@ -196,18 +196,20 @@ const ProofApproval = () => {
                       style={{ width: '100%', minWidth: '160px', maxWidth: '180px', minHeight: '160px' }}
                       onClick={(e) => { e.stopPropagation(); setSelectedProof(proof); setShowZoomModal(true); }}
                     >
-                      {proof.image_url ? (
-                        <div 
+                      {proof.image_url && (proof.image_url.startsWith('http') || proof.image_url.startsWith('/uploads')) ? (
+                        <img 
+                          src={proof.image_url.startsWith('http') ? proof.image_url : 'https://doan3-ooha.onrender.com' + proof.image_url}
+                          alt="Minh chứng"
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
                           className="w-100 h-100"
-                          style={{
-                            backgroundImage: `url(${proof.image_url.startsWith('http') ? proof.image_url : 'https://doan3-ooha.onrender.com' + proof.image_url})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        ></div>
+                          style={{ objectFit: 'cover' }}
+                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }}
+                        />
                       ) : (
-                        <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted small">Mất ảnh</div>
+                        <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted small">{proof.image_url ? 'Điểm danh trực tiếp' : 'Mất ảnh'}</div>
                       )}
+                      <div style={{display:'none'}} className="w-100 h-100 align-items-center justify-content-center text-muted small position-absolute top-0 start-0">Lỗi tải ảnh</div>
                       
                       <div className="proof-thumbnail-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
                         <div className="bg-dark bg-opacity-75 text-white rounded-circle d-flex align-items-center justify-content-center shadow" style={{ width: '40px', height: '40px' }}>
@@ -388,11 +390,13 @@ const ProofApproval = () => {
           </div>
 
           <div className="w-100 h-100 d-flex align-items-center justify-content-center p-4" style={{ height: '70vh', overflow: 'auto' }}>
-            {selectedProof?.image_url ? (
+            {selectedProof?.image_url && (selectedProof.image_url.startsWith('http') || selectedProof.image_url.startsWith('/uploads')) ? (
               <img 
                 id="movable-zoom-img"
                 src={selectedProof.image_url.startsWith('http') ? selectedProof.image_url : `https://doan3-ooha.onrender.com${selectedProof.image_url}`} 
                 alt="Minh chứng" 
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 className="img-fluid rounded shadow"
                 style={{ 
                   maxHeight: '65vh', 
