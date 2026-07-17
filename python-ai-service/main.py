@@ -105,8 +105,13 @@ async def analyze_proof(
         
         # 2. Xử lý OCR
         gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        raw_text = pytesseract.image_to_string(thresh, lang='vie+eng', config=r'--oem 3 --psm 1')
+        raw_text = pytesseract.image_to_string(gray, lang='vie+eng')
+        
+        # DỰ PHÒNG: Nếu trích xuất trực tiếp từ ảnh xám bị trống, chạy nhị phân hóa Otsu làm dự phòng
+        if not raw_text.strip():
+            _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+            raw_text = pytesseract.image_to_string(thresh, lang='vie+eng')
+            
         clean_extracted_text = normalize_vietnamese(raw_text)
         extracted_words = clean_extracted_text.split()
         
