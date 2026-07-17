@@ -956,7 +956,7 @@ const applyFilters = () => {
               </div>
               {isEditMode && selectedEvent?.sample_proof_url && (
                 <div className="mt-2 small text-muted">
-                  Ảnh mẫu hiện tại: <a href={`https://doan3-ooha.onrender.com${selectedEvent.sample_proof_url}`} target="_blank" rel="noreferrer" className="fw-bold text-decoration-none"><i className="bi bi-eye-fill me-1"></i>Xem ảnh mẫu</a>
+                  Ảnh mẫu hiện tại: <a href={selectedEvent.sample_proof_url.startsWith('http') ? selectedEvent.sample_proof_url : `https://doan3-ooha.onrender.com${selectedEvent.sample_proof_url}`} target="_blank" rel="noreferrer" className="fw-bold text-decoration-none"><i className="bi bi-eye-fill me-1"></i>Xem ảnh mẫu</a>
                 </div>
               )}
             </Form.Group>
@@ -1001,12 +1001,12 @@ const applyFilters = () => {
                     try {
                       const files = JSON.parse(selectedEvent.attached_file);
                       return Array.isArray(files) ? files.map((f, i) => (
-                        <a key={i} href={`https://doan3-ooha.onrender.com${f}`} target="_blank" rel="noreferrer" className="d-block text-decoration-none text-primary mb-1">
+                        <a key={i} href={f.startsWith('http') ? f : `https://doan3-ooha.onrender.com${f}`} target="_blank" rel="noreferrer" className="d-block text-decoration-none text-primary mb-1">
                           <i className="bi bi-download me-1"></i> Tải xuống Tài liệu {i + 1}
                         </a>
                       )) : null;
                     } catch {
-                      return <a href={`https://doan3-ooha.onrender.com${selectedEvent.attached_file}`} target="_blank" rel="noreferrer" className="text-decoration-none fw-bold">Xem / Tải xuống</a>;
+                      return <a href={selectedEvent.attached_file.startsWith('http') ? selectedEvent.attached_file : `https://doan3-ooha.onrender.com${selectedEvent.attached_file}`} target="_blank" rel="noreferrer" className="text-decoration-none fw-bold">Xem / Tải xuống</a>;
                     }
                   })()}
                 </div>
@@ -1223,7 +1223,7 @@ const applyFilters = () => {
               return (
                 <Col md={6} key={evt.id}>
                   <Card className={`dashboard-card h-100 border-0 shadow-sm ${isDeactivated ? 'opacity-75 bg-light' : ''}`}>
-                    <Card.Img variant="top" src={evt.poster_url ? `https://doan3-ooha.onrender.com${evt.poster_url}` : defaultPoster} style={{ height: '160px', objectFit: 'cover', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }} alt="Poster" />
+                    <Card.Img variant="top" src={evt.poster_url ? (evt.poster_url.startsWith('http') ? evt.poster_url : `https://doan3-ooha.onrender.com${evt.poster_url}`) : defaultPoster} style={{ height: '160px', objectFit: 'cover', borderTopLeftRadius: '12px', borderTopRightRadius: '12px' }} alt="Poster" />
                     <Card.Body className="d-flex flex-column p-3">
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <Badge bg={theme} className={`bg-opacity-10 text-${theme === 'warning' ? 'dark' : theme} rounded-pill px-3 py-2 fw-semibold text-uppercase`}>{evt.category}</Badge>

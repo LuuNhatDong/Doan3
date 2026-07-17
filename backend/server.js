@@ -1091,7 +1091,7 @@ app.post('/api/proofs/upload_ai', upload.fields([{ name: 'proof_image', maxCount
             const isMultipleTurn = scoreType === 'multiple';
 
             let image_hash = 'N/A';
-            let ocr_match_percent = 100; // Mặc định 100 nếu ko kiểm tra ảnh
+            let ocr_match_percent = imageUrl ? 0 : 100; // 0 nếu nộp ảnh chờ AI, 100 nếu chỉ nộp file/link
             let extracted_text = '';
             let ai_note = 'Hệ thống xử lý';
             let phash_warning = 0;
@@ -1123,6 +1123,7 @@ app.post('/api/proofs/upload_ai', upload.fields([{ name: 'proof_image', maxCount
                     }
                 } catch (pythonErr) {
                     ai_note = "Lỗi kết nối máy chủ AI - Chuyển Cán bộ duyệt thủ công";
+                    ocr_match_percent = 0;
                 }
             } else {
                 ai_note = "Sinh viên đã nộp bài (File/Link). Không có ảnh minh chứng.";
