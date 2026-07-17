@@ -1130,6 +1130,12 @@ app.post('/api/proofs/upload_ai', upload.fields([{ name: 'proof_image', maxCount
                         ai_status = 'approved';
                     }
                 } catch (pythonErr) {
+                    console.error("🔥 Lỗi kết nối Máy chủ AI:", pythonErr.message);
+                    if (pythonErr.response) {
+                        console.error("👉 Chi tiết phản hồi từ AI:", pythonErr.response.status, pythonErr.response.data);
+                    } else if (pythonErr.request) {
+                        console.error("👉 Yêu cầu đã gửi nhưng không nhận được phản hồi:", pythonErr.request._header);
+                    }
                     ai_note = "Lỗi kết nối máy chủ AI - Chuyển Cán bộ duyệt thủ công";
                     ocr_match_percent = 0;
                 }
