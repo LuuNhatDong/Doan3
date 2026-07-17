@@ -39,7 +39,6 @@ const EventManagement = ({ searchQuery = '' }) => {
 
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
-  // --- VÁ LỖI TÌM KIẾM: ĐỒNG BỘ LIÊN TỤC VỚI URL VÀ THANH TÌM KIẾM TỔNG ---
   useEffect(() => {
     if (selectedEventId) {
       setLocalSearchQuery(selectedEventId);
@@ -80,7 +79,7 @@ const EventManagement = ({ searchQuery = '' }) => {
     { key: 'phone', label: 'SĐT' },
     { key: 'chi_doan', label: 'CHI ĐOÀN / KHOA' },
     { key: 'checkin_time', label: 'THỜI GIAN CHECK-IN' },
-    { key: 'method', label: 'PHƯƠNG THỨC CLB' }
+    { key: 'method', label: 'PHƯƠNG THỨC' }
   ];
   const EVENT_REQUIRED_FIELDS_STORAGE_KEY = 'Doan3_event_required_fields';
 
@@ -90,7 +89,7 @@ const EventManagement = ({ searchQuery = '' }) => {
     require_gps: false, latitude: '', longitude: '', required_fields: defaultRequiredFields,
     require_proof: true,
     require_file: false, 
-    require_class_committee: false, // BỔ SUNG: Cấu hình mặc định cho Cán bộ lớp
+    require_class_committee: false, 
     max_participants: '',
     score_type: 'once', 
     facultyLimits: { HTTT: '', KTPM: '', KHMT: '', MMTT: '' }
@@ -245,7 +244,7 @@ const EventManagement = ({ searchQuery = '' }) => {
       id: '', name: '', date: '', end_date: '', description: '', category: '', status: 'Sắp diễn ra', points: 0, require_gps: false, latitude: '', longitude: '', required_fields: defaultRequiredFields,
       require_proof: true,
       require_file: false, 
-      require_class_committee: false, // BỔ SUNG: Cấu hình mặc định khi tạo mới
+      require_class_committee: false, 
       max_participants: '',
       score_type: 'once',
       facultyLimits: emptyLimits
@@ -258,8 +257,16 @@ const EventManagement = ({ searchQuery = '' }) => {
     setShowCreateModal(true);
   };
 
+  // --- LOGIC THỜI GIAN ĐÃ ĐƯỢC FIX LỖI NHẢY GIỜ ---
   const toDateTimeLocal = (dateStr) => {
     if (!dateStr) return '';
+    
+    // 1. Xử lý ưu tiên chuỗi thô từ MySQL (định dạng "YYYY-MM-DD HH:mm:ss")
+    if (typeof dateStr === 'string' && dateStr.includes(' ') && !dateStr.includes('T')) {
+       return dateStr.replace(' ', 'T').substring(0, 16);
+    }
+  
+    // 2. Fallback an toàn nếu dữ liệu truyền vào là Object Date hoặc chuẩn ISO
     const dt = new Date(dateStr);
     if (isNaN(dt.getTime())) return '';
     const pad = (n) => n.toString().padStart(2, '0');
@@ -306,7 +313,7 @@ const EventManagement = ({ searchQuery = '' }) => {
       required_fields: parseRequiredFields(normalizedEvent.required_fields) || getRequiredFieldsForEvent(normalizedEvent.id) || defaultRequiredFields,
       require_proof: evt.require_proof !== undefined ? Boolean(Number(evt.require_proof)) : true,
       require_file: evt.require_file !== undefined ? Boolean(Number(evt.require_file)) : false, 
-      require_class_committee: evt.require_class_committee !== undefined ? Boolean(Number(evt.require_class_committee)) : false, // BỔ SUNG: Lấy dữ liệu từ CSDL
+      require_class_committee: evt.require_class_committee !== undefined ? Boolean(Number(evt.require_class_committee)) : false,
       max_participants: evt.max_participants || '',
       score_type: (evt.score_type && evt.score_type.toString().trim() !== '') ? evt.score_type.toString().trim().toLowerCase() : 'once',
       facultyLimits: initialLimits
@@ -369,7 +376,6 @@ const EventManagement = ({ searchQuery = '' }) => {
       setSelectedPresetId(null);
       setAutoDetectPreset(false);
     } else if (name === 'require_proof' || name === 'require_file' || name === 'require_class_committee') { 
-      // BỔ SUNG: Xử lý State cho tất cả các Switch Checkbox mới
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
@@ -551,7 +557,7 @@ const EventManagement = ({ searchQuery = '' }) => {
     payload.append('require_gps', formData.require_gps ? 1 : 0);
     payload.append('require_proof', formData.require_proof ? 1 : 0);
     payload.append('require_file', formData.require_file ? 1 : 0); 
-    payload.append('require_class_committee', formData.require_class_committee ? 1 : 0); // BỔ SUNG: Gửi tín hiệu xuống Server
+    payload.append('require_class_committee', formData.require_class_committee ? 1 : 0);
     payload.append('max_participants', limitTong);
     payload.append('required_fields', JSON.stringify(formData.required_fields || defaultRequiredFields));
     payload.append('category', formData.category);
@@ -609,7 +615,7 @@ const EventManagement = ({ searchQuery = '' }) => {
           location_preset_id: nextGpsEnabled ? (finalPresetId || selectedPresetId || null) : null,
           require_proof: Boolean(formData.require_proof),
           require_file: Boolean(formData.require_file),
-          require_class_committee: Boolean(formData.require_class_committee), // BỔ SUNG: Cập nhật State trực tiếp sau khi lưu
+          require_class_committee: Boolean(formData.require_class_committee),
           max_participants: limitTong,
           score_type: formData.score_type,
           required_fields: formData.required_fields || defaultRequiredFields,
@@ -635,26 +641,44 @@ const EventManagement = ({ searchQuery = '' }) => {
     }
   };
 
-  const handleExportParticipants = () => {
+const handleExportParticipants = () => {
     if (participants.length === 0) return alert("Chưa có sinh viên nào điểm danh!");
     
-    // Cập nhật header thêm cột File/Link
-    const headers = [['MSSV', 'HỌ VÀ TÊN', 'SĐT', 'CHI ĐOÀN / KHOA', 'THỜI GIAN ĐIỂM DANH', 'PHƯƠNG THỨC', 'ĐƯỜNG DẪN TẢI BÀI (FILE)', 'LIÊN KẾT BÀI NỘP (LINK)']];
+    const reqFields = formData.required_fields || [];
     
-    // Cập nhật data cho các hàng
-    const rows = participants.map(p => [
-      p.id, 
-      p.name, 
-      p.phone || '-', 
-      p.chi_doan || '-', 
-      p.checkin_time, 
-      p.method,
-      p.file ? `https://doan3-ooha.onrender.com${p.file}` : '-', 
-      p.link || '-'
-    ]);
+    // 1. Tự động tạo mảng Tiêu đề (Header) dựa trên các cột được tick
+    const headersRow = [];
+    if (reqFields.includes('mssv')) headersRow.push('MSSV');
+    if (reqFields.includes('name')) headersRow.push('HỌ VÀ TÊN');
+    if (reqFields.includes('phone')) headersRow.push('SĐT');
+    if (reqFields.includes('chi_doan')) headersRow.push('CHI ĐOÀN / KHOA');
+    if (reqFields.includes('checkin_time')) headersRow.push('THỜI GIAN ĐIỂM DANH');
+    if (reqFields.includes('method')) headersRow.push('PHƯƠNG THỨC');
+    
+    headersRow.push('SỐ LƯỢT NỘP', 'ĐIỂM CỘNG DỒN', 'BÀI NỘP'); // Các cột cố định
+    const headers = [headersRow];
+    
+    // 2. Map dữ liệu tương ứng với tiêu đề
+    const rows = participants.map(p => {
+      const rowData = [];
+      if (reqFields.includes('mssv')) rowData.push(p.id);
+      if (reqFields.includes('name')) rowData.push(p.name);
+      if (reqFields.includes('phone')) rowData.push(p.phone || '-');
+      if (reqFields.includes('chi_doan')) rowData.push(p.chi_doan || '-');
+      if (reqFields.includes('checkin_time')) rowData.push(p.checkin_time);
+      if (reqFields.includes('method')) rowData.push(p.method);
+      
+      rowData.push(p.total_turns || 0);
+      rowData.push(p.accumulated_points || 0);
+      rowData.push(p.file ? (p.file.startsWith('http') ? p.file : `https://doan3-ooha.onrender.com${p.file}`) : (p.link || '-'));
+      
+      return rowData;
+    });
 
     const ws = XLSX.utils.aoa_to_sheet([...headers, ...rows]);
-    ws['!cols'] = [{ wch: 15 }, { wch: 28 }, { wch: 16 }, { wch: 24 }, { wch: 25 }, { wch: 18 }, { wch: 40 }, { wch: 40 }];
+    // Set độ rộng cột tạm thời (bạn có thể tinh chỉnh lại logic tự tính chiều rộng nếu muốn)
+    ws['!cols'] = Array(headersRow.length).fill({ wch: 20 }); 
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "DanhSachDiemDanh");
     XLSX.writeFile(wb, `DiemDanh_${selectedEvent.id}.xlsx`);
@@ -677,7 +701,7 @@ const EventManagement = ({ searchQuery = '' }) => {
     applyFilters();
   }, [filterMainCategory, filterCategory, filterStatus, localSearchQuery, events]);
 
-  const applyFilters = () => {
+const applyFilters = () => {
     let filtered = events;
     if (localSearchQuery) {
       filtered = filtered.filter(event =>
@@ -690,6 +714,10 @@ const EventManagement = ({ searchQuery = '' }) => {
     }
     if (filterCategory !== 'Tất cả') {
       filtered = filtered.filter(event => event.category === filterCategory);
+    }
+    // THÊM BỘ LỌC TRẠNG THÁI TẠI ĐÂY
+    if (filterStatus !== 'Tất cả') {
+      filtered = filtered.filter(event => event.status === filterStatus);
     }
     setFilteredEvents(filtered);
   };
@@ -846,14 +874,36 @@ const EventManagement = ({ searchQuery = '' }) => {
               )}
             </div>
 
+            {/* --- UPDATE FORM GIAO DIỆN THỜI GIAN --- */}
             <Row className="mb-3">
               <Form.Group as={Col}>
-                <Form.Label className="fw-semibold small text-dark">Bắt đầu lúc</Form.Label>
-                <Form.Control type="datetime-local" name="date" value={formData.date} onChange={handleChange} required className="shadow-none form-control-lg fs-6" />
+                <Form.Label className="fw-semibold small text-dark">
+                  <i className="bi bi-calendar2-check-fill text-primary me-2"></i> Bắt đầu lúc
+                </Form.Label>
+                <Form.Control 
+                  type="datetime-local" 
+                  name="date" 
+                  value={formData.date} 
+                  onChange={handleChange} 
+                  required 
+                  className="shadow-sm form-control-lg fs-6 bg-light border-0 rounded-3" 
+                  style={{ cursor: 'pointer' }} 
+                />
               </Form.Group>
+              
               <Form.Group as={Col}>
-                <Form.Label className="fw-semibold small text-dark">Kết thúc lúc</Form.Label>
-                <Form.Control type="datetime-local" name="end_date" value={formData.end_date} onChange={handleChange} required className="shadow-none form-control-lg fs-6" />
+                <Form.Label className="fw-semibold small text-dark">
+                  <i className="bi bi-calendar2-x-fill text-danger me-2"></i> Kết thúc lúc
+                </Form.Label>
+                <Form.Control 
+                  type="datetime-local" 
+                  name="end_date" 
+                  value={formData.end_date} 
+                  onChange={handleChange} 
+                  required 
+                  className="shadow-sm form-control-lg fs-6 bg-light border-0 rounded-3" 
+                  style={{ cursor: 'pointer' }} 
+                />
               </Form.Group>
             </Row>
 
@@ -994,7 +1044,6 @@ const EventManagement = ({ searchQuery = '' }) => {
               <Form.Check type="switch" id="file-switch" name="require_file" checked={!!formData.require_file} onChange={handleChange} className="m-0 fs-5" />
             </div>
             
-            {/* 👇 BỔ SUNG: NÚT CẤU HÌNH DÀNH RIÊNG CHO CÁN BỘ LỚP 👇 */}
             <div className="border-start border-secondary opacity-25 mx-2 d-none d-md-block" style={{ height: '24px' }}></div>
             
             <div className="d-flex align-items-center">
@@ -1084,82 +1133,85 @@ const EventManagement = ({ searchQuery = '' }) => {
 
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3 className="fw-bold mb-0">Quản lý Sự kiện</h3>
-        <div className="d-flex gap-3 flex-wrap align-items-center">
-          
-          <InputGroup className="shadow-sm" style={{ width: '280px' }}>
-            <InputGroup.Text className="bg-white border-end-0 text-muted">
-              <i className="bi bi-search"></i>
-            </InputGroup.Text>
-            <Form.Control
-              placeholder="Tìm theo tên "
-              className="border-start-0 shadow-none bg-white fw-medium"
-              value={localSearchQuery}
-              onChange={(e) => {
-                setLocalSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-            {localSearchQuery && (
-              <InputGroup.Text 
-                className="bg-white border-start-0 text-muted" 
-                style={{ cursor: 'pointer' }}
-                onClick={() => {
-                  setLocalSearchQuery('');
+{/* --- UPDATE FORM GIAO DIỆN HEADER RESPONSIVE --- */}
+      <Row className="align-items-center mb-4 gy-3">
+        <Col xl={3} lg={12}>
+          <h3 className="fw-bold mb-0">Quản lý Sự kiện</h3>
+        </Col>
+        <Col xl={9} lg={12}>
+          <div className="d-flex gap-2 flex-wrap flex-lg-nowrap justify-content-xl-end align-items-stretch">
+            
+
+
+            {/* Bộ lọc danh mục */}
+            <div className="d-flex bg-white border rounded shadow-sm flex-grow-1">
+              <div className="d-flex align-items-center px-3 bg-light text-muted border-end rounded-start">
+                <i className="bi bi-funnel-fill"></i>
+              </div>
+              <Form.Select
+                value={filterMainCategory}
+                onChange={(e) => {
+                  setFilterMainCategory(e.target.value);
+                  setFilterCategory('Tất cả');
                   setCurrentPage(1);
                 }}
+                className="border-0 shadow-none fw-medium text-dark rounded-0 w-50"
+                style={{ cursor: 'pointer' }}
               >
-                <i className="bi bi-x-circle-fill text-danger opacity-75"></i>
-              </InputGroup.Text>
-            )}
-          </InputGroup>
+                <option value="Tất cả">Tất cả nhóm</option>
+                {rawCriteria.map(mainCat => (
+                  <option key={mainCat.id} value={mainCat.id}>Mục {mainCat.id}</option>
+                ))}
+              </Form.Select>
 
-          <div className="d-flex bg-white border rounded shadow-sm">
-            <div className="d-flex align-items-center px-3 bg-light text-muted border-end rounded-start">
-              <i className="bi bi-funnel-fill"></i>
-            </div>
-            <Form.Select
-              value={filterMainCategory}
-              onChange={(e) => {
-                setFilterMainCategory(e.target.value);
-                setFilterCategory('Tất cả');
-              }}
-              className="border-0 shadow-none fw-medium text-dark rounded-0"
-              style={{ minWidth: '180px', maxWidth: '250px', cursor: 'pointer' }}
-            >
-              <option value="Tất cả">Tất cả nhóm danh mục</option>
-              {rawCriteria.map(mainCat => (
-                <option key={mainCat.id} value={mainCat.id}>Mục {mainCat.id}</option>
-              ))}
-            </Form.Select>
-
-            <Form.Select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="border-0 shadow-none fw-medium text-dark border-start rounded-end bg-transparent"
-              style={{ minWidth: '220px', maxWidth: '300px', cursor: 'pointer' }}
-              disabled={filterMainCategory === 'Tất cả'}
-            >
-              <option value="Tất cả">
-                {filterMainCategory === 'Tất cả' ? '-- Chọn nhóm lớn trước --' : 'Tất cả tiêu chí chi tiết'}
-              </option>
-              {rawCriteria
-                .filter(mainCat => String(mainCat.id) === String(filterMainCategory))
-                .map(mainCat => (
-                  mainCat.subCategories && mainCat.subCategories.map(sub => (
-                    <option key={sub.id} value={sub.id}>[{sub.id}] {sub.name}</option>
+              <Form.Select
+                value={filterCategory}
+                onChange={(e) => {
+                  setFilterCategory(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="border-0 shadow-none fw-medium text-dark border-start rounded-end bg-transparent w-50"
+                style={{ cursor: 'pointer' }}
+                disabled={filterMainCategory === 'Tất cả'}
+              >
+                <option value="Tất cả">
+                  {filterMainCategory === 'Tất cả' ? '-- Chọn nhóm --' : 'Tất cả tiêu chí'}
+                </option>
+                {rawCriteria
+                  .filter(mainCat => String(mainCat.id) === String(filterMainCategory))
+                  .map(mainCat => (
+                    mainCat.subCategories && mainCat.subCategories.map(sub => (
+                      <option key={sub.id} value={sub.id}>[{sub.id}] {sub.name}</option>
+                    ))
                   ))
-                ))
-              }
-            </Form.Select>
-          </div>
+                }
+              </Form.Select>
+            </div>
 
-          <Button className="btn-indigo-primary fw-semibold shadow-sm" onClick={handleOpenCreate}>
-            <i className="bi bi-plus-lg me-1"></i>Tạo sự kiện mới
-          </Button>
-        </div>
-      </div>
+            {/* BỔ SUNG: Bộ lọc trạng thái */}
+            <Form.Select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="border shadow-sm fw-medium text-dark bg-white"
+              style={{ cursor: 'pointer', maxWidth: '180px' }}
+            >
+              <option value="Tất cả">Tất cả trạng thái</option>
+              <option value="Sắp diễn ra">Sắp diễn ra</option>
+              <option value="Đang diễn ra">Đang diễn ra</option>
+              <option value="Đã kết thúc">Đã kết thúc</option>
+              <option value="Ngừng hoạt động">Ngừng hoạt động</option>
+            </Form.Select>
+
+            {/* Nút Tạo sự kiện */}
+            <Button className="btn-indigo-primary fw-semibold shadow-sm text-nowrap" onClick={handleOpenCreate}>
+              <i className="bi bi-plus-lg me-1"></i>Tạo sự kiện mới
+            </Button>
+          </div>
+        </Col>
+      </Row>
 
       <Row className="g-4">
         <Col md={8}>
@@ -1288,12 +1340,15 @@ const EventManagement = ({ searchQuery = '' }) => {
   <Table hover responsive size="sm" className="mb-0 align-middle">
     <thead className="bg-light text-muted" style={{ fontSize: '0.85rem' }}>
       <tr>
-        <th className="py-3 px-3">MSSV</th>
-        <th className="py-3">HỌ VÀ TÊN</th>
-        <th className="py-3">SĐT</th>
-        <th className="py-3">CHI ĐOÀN / KHOA</th>
-        <th className="py-3">THỜI GIAN CHECK-IN</th>
-        <th className="py-3">PHƯƠNG THỨC</th>
+        {/* KIỂM TRA ĐIỀU KIỆN TỪ formData.required_fields ĐỂ ẨN/HIỆN THẺ TH */}
+        {(formData.required_fields || []).includes('mssv') && <th className="py-3 px-3">MSSV</th>}
+        {(formData.required_fields || []).includes('name') && <th className="py-3">HỌ VÀ TÊN</th>}
+        {(formData.required_fields || []).includes('phone') && <th className="py-3">SĐT</th>}
+        {(formData.required_fields || []).includes('chi_doan') && <th className="py-3">CHI ĐOÀN / KHOA</th>}
+        {(formData.required_fields || []).includes('checkin_time') && <th className="py-3">THỜI GIAN CHECK-IN</th>}
+        {(formData.required_fields || []).includes('method') && <th className="py-3">PHƯƠNG THỨC</th>}
+        
+        {/* Các cột này luôn hiện */}
         <th className="text-center py-3">SỐ LƯỢT NỘP</th>
         <th className="text-center py-3">ĐIỂM CỘNG DỒN</th>
         <th className="py-3 text-center">BÀI NỘP</th>
@@ -1307,24 +1362,23 @@ const EventManagement = ({ searchQuery = '' }) => {
       ) : (
         participants.map((p, idx) => (
           <tr key={idx}>
-            <td className="px-3 py-2 fw-semibold">{p.id}</td>
-            <td className="py-2">{p.name}</td>
-            <td className="py-2">{p.phone || '-'} </td>
-            <td className="py-2">{p.chi_doan || '-'}</td>
-            <td className="py-2 text-muted">{p.checkin_time}</td>
-            <td className="py-2"><Badge bg="info" className="bg-opacity-10 text-info px-2 py-1">{p.method}</Badge></td>
+            {/* TƯƠNG TỰ, ẨN/HIỆN CÁC THẺ TD DỰA TRÊN CHECKBOX */}
+            {(formData.required_fields || []).includes('mssv') && <td className="px-3 py-2 fw-semibold">{p.id}</td>}
+            {(formData.required_fields || []).includes('name') && <td className="py-2">{p.name}</td>}
+            {(formData.required_fields || []).includes('phone') && <td className="py-2">{p.phone || '-'} </td>}
+            {(formData.required_fields || []).includes('chi_doan') && <td className="py-2">{p.chi_doan || '-'}</td>}
+            {(formData.required_fields || []).includes('checkin_time') && <td className="py-2 text-muted">{p.checkin_time}</td>}
+            {(formData.required_fields || []).includes('method') && <td className="py-2"><Badge bg="info" className="bg-opacity-10 text-info px-2 py-1">{p.method}</Badge></td>}
             
             <td className="py-2 text-center fw-bold text-secondary">
               {p.total_turns || 0} lần
             </td>
-
             <td className="py-2 text-center fw-bold text-success">
               +{p.accumulated_points || 0} ĐRL
             </td>
-
             <td className="py-2 text-center">
               {p.file && (
-                <a href={`https://doan3-ooha.onrender.com${p.file}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary py-0 px-2 me-1 mb-1" title="Tải File đính kèm">
+                <a href={p.file.startsWith('http') ? p.file : `https://doan3-ooha.onrender.com${p.file}`} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary py-0 px-2 me-1 mb-1" title="Tải File đính kèm">
                   <i className="bi bi-download"></i> File
                 </a>
               )}

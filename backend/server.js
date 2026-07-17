@@ -2107,11 +2107,31 @@ app.post('/api/mobile/checkin_event', (req, res) => {
                 }
 
                 // Lấy thông tin cấu hình sự kiện (Kèm theo Tọa độ tổ chức)
-                db.query("SELECT require_gps, require_proof, points, category, latitude, longitude, require_class_committee FROM events WHERE id = ?", [event_id], (eventErr, eventRows) => {
+                db.query("SELECT date, status, require_gps, require_proof, points, category, latitude, longitude, require_class_committee FROM events WHERE id = ?", [event_id], (eventErr, eventRows) => {
                     if (eventErr || eventRows.length === 0) {
                         return res.json({ status: "error", message: "Không tìm thấy cấu hình sự kiện." });
                     }
                     const event = eventRows[0];
+                    
+                    // --- BẮT ĐẦU: BỘ LỌC CHẶN ĐIỂM DANH SỚM ---
+                    if (event.status === 'Ngừng hoạt động' || event.status === 'Đã kết thúc') {
+                        return res.json({ status: "error", message: "Sự kiện đã đóng, không thể điểm danh." });
+                    }
+
+                    if (event.date) {
+                        const eventStartTime = new Date(event.date).getTime();
+                        const currentTime = Date.now();
+                        // Cho phép quét mã check-in sớm tối đa 15 phút (900,000 milliseconds)
+                        const checkinWindow = eventStartTime - (15 * 60 * 1000); 
+
+                        if (currentTime < checkinWindow) {
+                            return res.json({ 
+                                status: "error", 
+                                message: "Sự kiện chưa diễn ra. Mã QR chưa được kích hoạt!" 
+                            });
+                        }
+                    }
+                    // --- KẾT THÚC: BỘ LỌC CHẶN ĐIỂM DANH SỚM ---
                     
                     // 👇 BỘ LỌC CHẶN SINH VIÊN THƯỜNG QUÉT MÃ QR 👇
                     if (event.require_class_committee === 1 && !['classCommittee', 'classcommittee', 'admin', 'superadmin'].includes(userRole)) {

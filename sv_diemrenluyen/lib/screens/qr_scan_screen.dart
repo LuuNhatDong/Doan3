@@ -3,12 +3,14 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart'; 
+import 'dart:typed_data'; // Bổ sung thư viện xử lý Uint8List
 import '../widgets/shared_app_bar.dart'; 
 import '../core/app_config.dart';
 import 'evidence_submit_screen.dart'; 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:qr_code_vision/qr_code_vision.dart';
+
 class QRScanScreen extends StatefulWidget {
   final Map<String, dynamic> userData;
   final String? expectedEventId;   
@@ -37,6 +39,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
   String _gpsStatusText = 'Đang tìm vị trí...';
   List<dynamic> _localEvents = []; 
   bool _isPreFetchDataLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +62,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
         }
       }
     } catch (e) {
-      print('Cảnh báo lỗi Pre-fetch dữ liệu: $e');
+      debugPrint('Cảnh báo lỗi Pre-fetch dữ liệu: $e');
       // Không cần block người dùng, nếu lỗi ta sẽ xử lý dự phòng ở hàm check-in sau
     }
   }
@@ -149,10 +152,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
     );
   }
 
-// --- HÀM CHẠY NỀN (ISOLATE) ĐỂ KHÔNG LÀM ĐƠ TRÌNH DUYỆT ---
-
-
-// --- HÀM CHẠY NỀN ĐỂ ĐỌC QR TRÊN WEB (TRÁNH ĐƠ GIAO DIỆN) ---
+  // --- HÀM CHẠY NỀN ĐỂ ĐỌC QR TRÊN WEB (TRÁNH ĐƠ GIAO DIỆN) ---
   static String? _decodeQrTask(Uint8List bytes) {
     final img.Image? decodedImage = img.decodeImage(bytes);
     if (decodedImage == null) return null;
@@ -199,7 +199,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
 
       // 3. VÁ LỖI TREO LOADING VĨNH VIỄN
       // Bắt buộc phải tắt biến _isProcessing TRƯỚC KHI gọi _handleCheckIn
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
 
       // 4. KIỂM TRA VÀ CHUYỂN HƯỚNG
       if (decodedCode != null && decodedCode.isNotEmpty) {
@@ -213,7 +213,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
     }
   }
 
-// --- XỬ LÝ QUÉT THÔNG MINH (TRÍCH XUẤT ID & ĐĂNG KÝ NHANH) ---
+  // --- XỬ LÝ QUÉT THÔNG MINH (TRÍCH XUẤT ID & ĐĂNG KÝ NHANH) ---
   Future<void> _handleCheckIn(String qrData) async {
     if (_isProcessing || !_isGpsLocked || _currentPosition == null) return;
     
@@ -272,7 +272,6 @@ class _QRScanScreenState extends State<QRScanScreen> {
           return;
         }
 
-        // SỬA LỖI: Gỡ bỏ showDialog loading và Navigator.pop(context) gây lỗi trắng màn hình
         try {
           final regRes = await _dio.post('$backendBaseUrl/api/mobile/register_event', data: {'event_id': scannedEventId, 'mssv': mssv});
           if (regRes.data['status'] != 'success') {
@@ -310,7 +309,6 @@ class _QRScanScreenState extends State<QRScanScreen> {
 
       // ĐIỀU PHỐI ĐIỂM DANH
       if (requireGps || !requireProof) {
-        // SỬA LỖI: Gỡ bỏ showDialog loading và Navigator.pop(context) gây lỗi trắng màn hình
         try {
           final checkInRes = await _dio.post(
             '$backendBaseUrl/api/mobile/checkin_event',
@@ -331,11 +329,21 @@ class _QRScanScreenState extends State<QRScanScreen> {
               builder: (ctx) => AlertDialog(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 title: const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Color(0xFF2ECA7F)),
-                    SizedBox(width: 8),
-                    Text('Điểm danh thành công', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
+children: [
+  Icon(Icons.check_circle, color: Color(0xFF2ECA7F)),
+  SizedBox(width: 8),
+  Expanded( 
+    child: Text(
+      'Điểm danh thành công', 
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 15.0, // ✅ Thêm dòng này để giảm kích thước chữ
+      ),
+      maxLines: 2, 
+      overflow: TextOverflow.ellipsis, 
+    ),
+  ),
+],
                 ),
                 content: Text(
                   checkInRes.data['message'] ?? 'Bạn đã được ghi nhận điểm danh và cộng điểm rèn luyện trực tiếp.',
@@ -344,7 +352,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
                   TextButton(
                     onPressed: () {
                       Navigator.pop(ctx);
-                      setState(() => _isProcessing = false);
+                      if(mounted) setState(() => _isProcessing = false);
                       _scannerController.start();
                     },
                     child: const Text('Xác nhận', style: TextStyle(color: Color(0xFF0D235E), fontWeight: FontWeight.bold)),
@@ -359,6 +367,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
           _showErrorAndResume('Lỗi mạng khi điểm danh: $e');
         }
       } else {
+        if (!mounted) return;
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
@@ -374,8 +383,9 @@ class _QRScanScreenState extends State<QRScanScreen> {
           ),
         );
 
+        if (!mounted) return;
+        
         if (result == true) {
-          if (!mounted) return;
           if (Navigator.canPop(context)) {
             Navigator.pop(context, true); 
           } else {
