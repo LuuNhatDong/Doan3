@@ -1376,7 +1376,7 @@ app.get('/api/users/stats', (req, res) => {
 
 app.get('/api/proofs', (req, res) => {
     let sql = `
-        SELECT p.id, p.image_url, p.image_hash, p.ocr_match_percent, p.phash_warning, p.status, p.created_at,
+        SELECT p.id, p.image_url, p.image_hash, p.ocr_match_percent, p.phash_warning, p.status, p.created_at, p.ai_note,
                u.full_name AS student_name, u.mssv, u.chi_doan,
                e.name AS event_name
         FROM proofs p
