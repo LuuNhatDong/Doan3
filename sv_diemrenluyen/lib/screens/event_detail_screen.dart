@@ -421,9 +421,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       if (posterPath == null || posterPath.isEmpty) {
         return Image.asset('assets/img/ctut-placeholder.jpg', fit: BoxFit.cover);
       }
-      final cleanPath = posterPath.startsWith("/") ? posterPath.substring(1) : posterPath;
-      final fullUrl = '$backendBaseUrl/$cleanPath';
-
+      final String fullUrl;
+      if (posterPath.startsWith("http://") || posterPath.startsWith("https://")) {
+        fullUrl = posterPath;
+      } else {
+        final cleanPath = posterPath.startsWith("/") ? posterPath.substring(1) : posterPath;
+        fullUrl = '$backendBaseUrl/$cleanPath';
+      }
+      
       return Image.network(
         Uri.encodeFull(fullUrl), 
         fit: BoxFit.cover,

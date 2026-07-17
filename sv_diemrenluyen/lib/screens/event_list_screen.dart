@@ -438,8 +438,13 @@ class _EventListScreenState extends State<EventListScreen> with SingleTickerProv
           child: Image.asset(defaultAssetPath, fit: BoxFit.cover),
         );
       } else {
-        final cleanPath = posterPath.startsWith("/") ? posterPath.substring(1) : posterPath;
-        final fullUrl = '$backendBaseUrl/$cleanPath';
+        final String fullUrl;
+        if (posterPath.startsWith("http://") || posterPath.startsWith("https://")) {
+          fullUrl = posterPath;
+        } else {
+          final cleanPath = posterPath.startsWith("/") ? posterPath.substring(1) : posterPath;
+          fullUrl = '$backendBaseUrl/$cleanPath';
+        }
         
         return SizedBox(
           height: 160,
