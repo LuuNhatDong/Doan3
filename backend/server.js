@@ -95,7 +95,9 @@ const db = mysql.createPool({
     charset: 'utf8mb4_general_ci',
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    dateStrings: true,
+    timezone: '+07:00'
 });
 
 db.on('connection', (connection) => {
